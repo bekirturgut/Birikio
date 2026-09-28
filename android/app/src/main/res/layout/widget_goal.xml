@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical"
+    android:gravity="center_vertical" android:padding="16dp"
+    android:background="@drawable/birikio_widget_background">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="B✦  BİRİKİM HEDEFİ" android:textColor="@color/widget_accent"
+        android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.08" />
+    <TextView android:id="@+id/goal_title" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="12dp"
+        android:text="Yeni hedefini belirle" android:textColor="@color/widget_text"
+        android:textSize="17sp" android:textStyle="bold" android:maxLines="2"
+        android:ellipsize="end" />
+    <TextView android:id="@+id/goal_percent" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="5dp"
+        android:text="0%" android:textColor="@color/widget_accent"
+        android:textSize="24sp" android:textStyle="bold" />
+    <ProgressBar android:id="@+id/goal_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="7dp"
+        android:layout_marginTop="7dp" android:max="100" android:progress="0"
+        android:progressTint="@color/widget_accent" android:progressBackgroundTint="@color/widget_track" />
+</LinearLayout>

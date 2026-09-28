@@ -118,6 +118,8 @@ class _EntryFormState extends State<EntryForm> {
   late String category =
       widget.entry?.category ?? (widget.income ? 'Maaş' : 'Alışveriş');
   int frequency = 0;
+  bool isBill = false;
+  bool automaticPayment = true;
   bool saving = false;
   String? error;
   @override
@@ -130,6 +132,31 @@ class _EntryFormState extends State<EntryForm> {
 
   Future<void> save() async {
     if (!key.currentState!.validate()) return;
+    var scope = 0;
+    if (widget.entry?.rule != null) {
+      final selected = await showDialog<int>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('Hangi kayıtlar değişsin?'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, 0),
+              child: const Text('Yalnızca bu kayıt'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, 1),
+              child: const Text('Bu ve sonraki kayıtlar'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, 2),
+              child: const Text('Tüm seri'),
+            ),
+          ],
+        ),
+      );
+      if (selected == null || !mounted) return;
+      scope = selected;
+    }
     setState(() {
       saving = true;
       error = null;
@@ -143,16 +170,13 @@ class _EntryFormState extends State<EntryForm> {
               : title.text.trim(),
           amount: parseMoney(amount.text)!,
           income: widget.income,
-          date: date,
+          date: scope == 0 ? date : widget.entry!.date,
           category: category,
           note: note.text.trim(),
           rule: widget.entry?.rule,
         );
         if (widget.entry != null) {
-          widget.store.entries[widget.store.entries.indexWhere(
-                (x) => x.id == e.id,
-              )] =
-              e;
+          widget.store.updateRecurringEntry(widget.entry!, e, scope);
         } else if (frequency == 0) {
           widget.store.entries.add(e);
         } else {
@@ -166,6 +190,8 @@ class _EntryFormState extends State<EntryForm> {
               category: category,
               frequency: frequency,
               note: e.note,
+              isBill: isBill,
+              automaticPayment: automaticPayment,
             ),
           );
           widget.store.materialize(DateTime.now());
@@ -185,25 +211,17 @@ class _EntryFormState extends State<EntryForm> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = widget.income
-        ? ['Maaş', 'Serbest iş', 'Yatırım', 'Hediye', 'Diğer']
-        : [
-            'Alışveriş',
-            'Yeme içme',
-            'Ulaşım',
-            'Ev & faturalar',
-            'Sağlık',
-            'Eğlence',
-            'Eğitim',
-            'Diğer',
-          ];
+    final categories = {
+      ...widget.store.categoriesFor(widget.income),
+      category,
+    }.toList();
     return Form(
       key: key,
       child: FormShell(
         title:
             '${widget.income ? 'Gelir' : 'Gider'} ${widget.entry == null ? 'ekle' : 'düzenle'}',
         subtitle: widget.entry?.rule != null
-            ? 'Bu değişiklik yalnızca seçili kaydı etkiler. Gelecek tekrarları kayıt listesinden yönetebilirsin.'
+            ? 'Kaydederken değişikliğin hangi dönemleri etkileyeceğini seçebilirsin. Tekrarın tarih ve sıklığı değişmez.'
             : 'Küçük kayıtlar, büyük bir farkındalık.',
         children: [
           TextFormField(
@@ -233,12 +251,60 @@ class _EntryFormState extends State<EntryForm> {
             ),
           ),
           DropdownButtonFormField<String>(
+            key: ValueKey(category),
             initialValue: category,
             decoration: const InputDecoration(labelText: 'Kategori'),
             items: categories
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                 .toList(),
             onChanged: (v) => setState(() => category = v!),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              var categoryName = '';
+              final name = await showDialog<String>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Yeni kategori'),
+                  content: TextField(
+                    onChanged: (value) => categoryName = value,
+                    maxLength: 40,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Kategori adı',
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Vazgeç'),
+                    ),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, categoryName),
+                      child: const Text('Ekle'),
+                    ),
+                  ],
+                ),
+              );
+              if (name == null || !mounted) return;
+              try {
+                await widget.store.change(
+                  () => widget.store.addCategory(widget.income, name),
+                );
+                setState(() => category = name.trim());
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Kategori eklenemedi. Adı kontrol et.'),
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Yeni kategori ekle'),
           ),
           const SizedBox(height: 12),
           ListTile(
@@ -247,19 +313,42 @@ class _EntryFormState extends State<EntryForm> {
             title: Text(dateLabel(date)),
             subtitle: const Text('Kayıt / başlangıç tarihi'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: date,
-                firstDate: DateTime(2000),
-                lastDate: widget.entry == null && frequency != 0
-                    ? DateTime(2100)
-                    : DateTime.now(),
-              );
-              if (d != null) setState(() => date = d);
-            },
+            onTap: widget.entry?.rule != null
+                ? null
+                : () async {
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: date,
+                      firstDate: DateTime(2000),
+                      lastDate: widget.entry == null && frequency != 0
+                          ? DateTime(2100)
+                          : DateTime.now(),
+                    );
+                    if (d != null) setState(() => date = d);
+                  },
           ),
           if (widget.entry == null) ...[
+            if (!widget.income)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Fatura / abonelik'),
+                subtitle: const Text('Ödeme tarihlerini takip et'),
+                value: isBill,
+                onChanged: (value) => setState(() {
+                  isBill = value;
+                  if (isBill && frequency == 0) frequency = 3;
+                }),
+              ),
+            if (isBill)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Otomatik ödeniyor'),
+                subtitle: const Text(
+                  'Vadede otomatik gider kaydı oluşturulur; banka ödemesi doğrulanmaz.',
+                ),
+                value: automaticPayment,
+                onChanged: (value) => setState(() => automaticPayment = value),
+              ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
               initialValue: frequency,
@@ -270,6 +359,7 @@ class _EntryFormState extends State<EntryForm> {
               ),
               onChanged: (v) => setState(() {
                 frequency = v!;
+                if (isBill && frequency == 0) isBill = false;
                 if (frequency == 0 && date.isAfter(DateTime.now())) {
                   date = day(DateTime.now());
                 }
@@ -331,12 +421,21 @@ class _GoalFormState extends State<GoalForm> {
         : (widget.goal!.target / 100).toStringAsFixed(2).replaceAll('.', ','),
   );
   late String icon = widget.goal?.icon ?? 'Motor';
+  late DateTime? targetDate = widget.goal?.targetDate;
+  late final monthly = TextEditingController(
+    text: widget.goal?.monthlyContribution == null
+        ? ''
+        : (widget.goal!.monthlyContribution! / 100)
+              .toStringAsFixed(2)
+              .replaceAll('.', ','),
+  );
   bool saving = false;
   String? error;
   @override
   void dispose() {
     name.dispose();
     amount.dispose();
+    monthly.dispose();
     super.dispose();
   }
 
@@ -388,6 +487,48 @@ class _GoalFormState extends State<GoalForm> {
           validator: (v) =>
               parseMoney(v ?? '') == null ? 'Geçerli bir tutar gir.' : null,
         ),
+        const SizedBox(height: 16),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.event_rounded),
+          title: Text(
+            targetDate == null ? 'Hedef tarihi ekle' : dateLabel(targetDate!),
+          ),
+          subtitle: const Text('İsteğe bağlı'),
+          trailing: targetDate == null
+              ? const Icon(Icons.chevron_right_rounded)
+              : IconButton(
+                  tooltip: 'Hedef tarihini kaldır',
+                  onPressed: () => setState(() => targetDate = null),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+          onTap: () async {
+            final now = day(DateTime.now());
+            final date = await showDatePicker(
+              context: context,
+              initialDate: targetDate != null && targetDate!.isAfter(now)
+                  ? targetDate!
+                  : DateTime(now.year, now.month + 1, now.day),
+              firstDate: now,
+              lastDate: DateTime(now.year + 50),
+            );
+            if (date != null) setState(() => targetDate = date);
+          },
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: monthly,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Planlanan aylık birikim',
+            helperText: 'İsteğe bağlı · tahmini bitiş için kullanılır',
+            suffixText: '₺',
+          ),
+          validator: (value) =>
+              value == null || value.trim().isEmpty || parseMoney(value) != null
+              ? null
+              : 'Geçerli bir tutar gir.',
+        ),
         if (error != null)
           Text(
             error!,
@@ -409,6 +550,10 @@ class _GoalFormState extends State<GoalForm> {
                             : name.text.trim(),
                         icon: icon,
                         target: parseMoney(amount.text)!,
+                        targetDate: targetDate,
+                        monthlyContribution: monthly.text.trim().isEmpty
+                            ? null
+                            : parseMoney(monthly.text),
                       );
                       if (widget.goal == null) {
                         widget.store.goals.add(g);

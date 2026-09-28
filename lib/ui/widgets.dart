@@ -103,13 +103,65 @@ class EmptyState extends StatelessWidget {
       width: double.infinity,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: financeColors(context).accent.withValues(alpha: .12),
-              shape: BoxShape.circle,
+          SizedBox(
+            width: 116,
+            height: 92,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: 7,
+                  left: 12,
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: financeColors(context).accent.withValues(alpha: .5),
+                  ),
+                ),
+                Positioned(
+                  bottom: 8,
+                  right: 10,
+                  child: Icon(
+                    Icons.circle,
+                    size: 8,
+                    color: financeColors(context).gold.withValues(alpha: .7),
+                  ),
+                ),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: .7, end: 1),
+                  duration: Duration(
+                    milliseconds: MediaQuery.disableAnimationsOf(context)
+                        ? 0
+                        : 650,
+                  ),
+                  curve: Curves.easeOutBack,
+                  builder: (_, value, child) =>
+                      Transform.scale(scale: value, child: child),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                          financeColors(context).accent.withValues(alpha: .22),
+                          financeColors(context).accent.withValues(alpha: .06),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: financeColors(
+                          context,
+                        ).accent.withValues(alpha: .16),
+                      ),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: financeColors(context).accent,
+                      size: 31,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Icon(icon, color: financeColors(context).accent, size: 30),
           ),
           const SizedBox(height: 16),
           Text(
@@ -322,7 +374,7 @@ class _MoneyBurstState extends State<MoneyBurst>
     with SingleTickerProviderStateMixin {
   late final AnimationController c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1300),
+    duration: const Duration(milliseconds: 1600),
   )..forward().whenComplete(widget.onEnd);
   @override
   void dispose() {
@@ -334,58 +386,116 @@ class _MoneyBurstState extends State<MoneyBurst>
   Widget build(BuildContext context) => IgnorePointer(
     child: AnimatedBuilder(
       animation: c,
-      builder: (_, _) => LayoutBuilder(
-        builder: (_, box) => Stack(
-          children: List.generate(9, (i) {
-            final t = Curves.easeOutCubic.transform(c.value);
-            final direction = widget.adding ? 1 - t : t;
-            final angle = i * math.pi * 2 / 9;
-            return Positioned(
-              left:
-                  box.maxWidth / 2 -
-                  20 +
-                  math.cos(angle) * direction * box.maxWidth * .65,
-              top:
-                  box.maxHeight * .4 +
-                  math.sin(angle) * direction * 220 -
-                  t * (widget.adding ? 0 : 150),
-              child: Opacity(
-                opacity: (math.sin(c.value * math.pi) * 1.5).clamp(0, 1),
-                child: Transform.rotate(
-                  angle: direction * (i - 4) * .35,
-                  child: Container(
-                    width: 45,
-                    height: 27,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: widget.adding ? mint : coral,
-                      borderRadius: BorderRadius.circular(5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (widget.adding ? mint : coral).withValues(
-                            alpha: .4,
+      builder: (_, _) {
+        final t = c.value;
+        final color = widget.adding ? mint : coral;
+        final reveal = Curves.easeOutBack.transform((t / .55).clamp(0, 1));
+        final opacity = ((1 - t) / .24).clamp(0.0, 1.0);
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _MoneyMomentPainter(t, color, widget.adding),
+              ),
+            ),
+            Positioned.fill(
+              child: Center(
+                child: Opacity(
+                  opacity: opacity,
+                  child: Transform.scale(
+                    scale: reveal.clamp(0.0, 1.18),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: color.withValues(alpha: .55)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: .25),
+                            blurRadius: 32,
+                            spreadRadius: 4,
                           ),
-                          blurRadius: 16,
-                        ),
-                      ],
-                    ),
-                    child: const Text(
-                      '₺',
-                      style: TextStyle(
-                        color: ink,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.adding
+                                ? Icons.south_west_rounded
+                                : Icons.north_east_rounded,
+                            color: color,
+                            size: 26,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            widget.adding
+                                ? 'GELİR KAYDEDİLDİ'
+                                : 'GİDER KAYDEDİLDİ',
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: .6,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     ),
   );
+}
+
+class _MoneyMomentPainter extends CustomPainter {
+  final double t;
+  final Color color;
+  final bool income;
+  _MoneyMomentPainter(this.t, this.color, this.income);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final fade = math.sin(t * math.pi).clamp(0.0, 1.0);
+    final halo = Paint()
+      ..color = color.withValues(alpha: .16 * fade)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 32);
+    canvas.drawCircle(center, 85 + t * 50, halo);
+    final line = Paint()..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 18; i++) {
+      final angle = i * math.pi * 2 / 18 + (income ? -.3 : .3);
+      final progress = Curves.easeOutCubic.transform(t);
+      final distance = income ? (1 - progress) * 240 + 65 : progress * 260 + 55;
+      final point =
+          center +
+          Offset(math.cos(angle) * distance, math.sin(angle) * distance * .7);
+      line.color = color.withValues(alpha: fade * (i.isEven ? .8 : .45));
+      line.strokeWidth = i.isEven ? 3 : 2;
+      final direction = Offset(math.cos(angle), math.sin(angle) * .7);
+      canvas.drawLine(point, point - direction * (i.isEven ? 18 : 9), line);
+      if (i % 3 == 0) {
+        canvas.drawCircle(
+          point,
+          3 + 2 * fade,
+          Paint()..color = color.withValues(alpha: fade),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MoneyMomentPainter old) =>
+      old.t != t || old.color != color || old.income != income;
 }
 
 /// The fairing, low handlebars, raised tail and tucked rider form a sport bike.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gelir_gider/data/store.dart';
-import 'package:gelir_gider/ui/app.dart';
+import 'package:birikio/data/store.dart';
+import 'package:birikio/ui/app.dart';
 
 void main() {
   testWidgets(
@@ -37,7 +37,7 @@ void main() {
       expect(store.entries.single.amount, 1500050);
       expect(store.entries.single.title, 'Gelir');
       expect(disk, isNotNull);
-      for (final label in ['Gelir', 'Gider', 'Birikim', 'Bütçe', 'Analiz']) {
+      for (final label in ['Gelir & Gider', 'Cüzdan', 'Analiz']) {
         await tester.tap(find.text(label).last);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: label);

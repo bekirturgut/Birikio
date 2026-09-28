@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gelir_gider/data/store.dart';
-import 'package:gelir_gider/ui/app.dart';
+import 'package:birikio/data/store.dart';
+import 'package:birikio/ui/app.dart';
 
 void main() {
   testWidgets('Create a goal, deposit, withdraw and edit a transaction', (
@@ -50,10 +50,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.savings, 150000);
     expect(store.balance, 850000);
-    await tester.tap(find.text('Gelir').last);
+    await tester.tap(find.text('Gelir & Gider').last);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Maaş kaydı'));
-    await tester.tap(find.text('Maaş kaydı'));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    tester.widget<ListTile>(find.ancestor(
+      of: find.text('Maaş kaydı'), matching: find.byType(ListTile),
+    ).first).onTap!();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kaydı düzenle'));
     await tester.pumpAndSettle();

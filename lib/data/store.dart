@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'finance_document.dart';
 
 const months = [
   'Ocak',
@@ -18,6 +19,23 @@ const months = [
   'Aralık',
 ];
 const frequencies = ['Tek sefer', 'Günlük', 'Haftalık', 'Aylık', 'Yıllık'];
+const defaultIncomeCategories = [
+  'Maaş',
+  'Serbest iş',
+  'Yatırım',
+  'Hediye',
+  'Diğer',
+];
+const defaultExpenseCategories = [
+  'Alışveriş',
+  'Yeme içme',
+  'Ulaşım',
+  'Ev & faturalar',
+  'Sağlık',
+  'Eğlence',
+  'Eğitim',
+  'Diğer',
+];
 String uid() =>
     '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32)}';
 DateTime day(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -84,6 +102,8 @@ class RepeatRule {
   String id, title, category, note;
   int amount, frequency, cursor;
   bool income, active;
+  bool isBill, automaticPayment;
+  Map<int, int> dueDayChanges;
   DateTime start;
   RepeatRule({
     required this.id,
@@ -96,7 +116,10 @@ class RepeatRule {
     this.note = '',
     this.cursor = 0,
     this.active = true,
-  });
+    this.isBill = false,
+    this.automaticPayment = true,
+    Map<int, int>? dueDayChanges,
+  }) : dueDayChanges = dueDayChanges ?? {};
   DateTime occurrence(int index) {
     if (frequency == 1) {
       return DateTime(start.year, start.month, start.day + index);
@@ -108,10 +131,15 @@ class RepeatRule {
       start.year + (frequency == 4 ? index : 0),
       start.month + (frequency == 3 ? index : 0),
     );
+    final applicable =
+        dueDayChanges.keys.where((period) => period <= index).toList()..sort();
+    final dueDay = applicable.isEmpty
+        ? start.day
+        : dueDayChanges[applicable.last]!;
     return DateTime(
       base.year,
       base.month,
-      min(start.day, DateTime(base.year, base.month + 1, 0).day),
+      min(dueDay, DateTime(base.year, base.month + 1, 0).day),
     );
   }
 
@@ -126,6 +154,9 @@ class RepeatRule {
     'note': note,
     'cursor': cursor,
     'active': active,
+    'isBill': isBill,
+    'automaticPayment': automaticPayment,
+    'dueDayChanges': dueDayChanges.map((key, value) => MapEntry('$key', value)),
   };
   factory RepeatRule.read(Map<String, dynamic> j) => RepeatRule(
     id: j['id'],
@@ -138,30 +169,66 @@ class RepeatRule {
     note: j['note'],
     cursor: j['cursor'],
     active: j['active'],
+    isBill: j['isBill'] as bool? ?? false,
+    automaticPayment: j['automaticPayment'] as bool? ?? true,
+    dueDayChanges: (j['dueDayChanges'] as Map? ?? {}).map(
+      (key, value) => MapEntry(int.parse(key.toString()), value as int),
+    ),
   );
 }
 
 class Goal {
   String id, title, icon;
   int target;
+  DateTime? targetDate;
+  int? monthlyContribution;
   Goal({
     required this.id,
     required this.title,
     required this.icon,
     required this.target,
+    this.targetDate,
+    this.monthlyContribution,
   });
   Map<String, dynamic> json() => {
     'id': id,
     'title': title,
     'icon': icon,
     'target': target,
+    'targetDate': targetDate?.toIso8601String(),
+    'monthlyContribution': monthlyContribution,
   };
   factory Goal.read(Map<String, dynamic> j) => Goal(
     id: j['id'],
     title: j['title'],
     icon: j['icon'],
     target: j['target'],
+    targetDate: j['targetDate'] == null
+        ? null
+        : DateTime.parse(j['targetDate']),
+    monthlyContribution: j['monthlyContribution'] as int?,
   );
+}
+
+int monthsUntil(DateTime from, DateTime to) {
+  if (!day(to).isAfter(day(from))) return 0;
+  final difference = (to.year - from.year) * 12 + to.month - from.month;
+  return difference + (to.day > from.day ? 1 : 0);
+}
+
+int? requiredMonthlySaving(Goal goal, int saved, DateTime now) {
+  final date = goal.targetDate;
+  if (date == null || saved >= goal.target) return null;
+  final months = monthsUntil(now, date);
+  if (months == 0) return null;
+  return (goal.target - saved + months - 1) ~/ months;
+}
+
+DateTime? projectedGoalDate(Goal goal, int saved, DateTime now) {
+  final monthly = goal.monthlyContribution;
+  if (monthly == null || monthly <= 0 || saved >= goal.target) return null;
+  final months = (goal.target - saved + monthly - 1) ~/ monthly;
+  return DateTime(now.year, now.month + months, now.day);
 }
 
 class Transfer {
@@ -205,6 +272,100 @@ class FinanceStore extends ChangeNotifier {
   List<Goal> goals = [];
   List<Transfer> transfers = [];
   Map<String, int> budgets = {};
+  Map<String, Map<String, int>> categoryBudgets = {};
+  bool notificationsEnabled = false;
+  bool showWidgetBalance = false;
+  Set<String> sentBudgetAlerts = {};
+  List<String> incomeCategories = [...defaultIncomeCategories];
+  List<String> expenseCategories = [...defaultExpenseCategories];
+  Map<String, String> incomeCategoryIds = {
+    for (final name in defaultIncomeCategories)
+      name: 'income:${Uri.encodeComponent(name)}',
+  };
+  Map<String, String> expenseCategoryIds = {
+    for (final name in defaultExpenseCategories)
+      name: 'expense:${Uri.encodeComponent(name)}',
+  };
+  Map<String, String> categoryIdsFor(bool income) =>
+      income ? incomeCategoryIds : expenseCategoryIds;
+  String categoryIdFor(bool income, String name) =>
+      categoryIdsFor(income)[name] ??
+      '${income ? 'income' : 'expense'}:${Uri.encodeComponent(name)}';
+  String generalBudgetId(DateTime month) =>
+      'budget:${budgetKey(month)}:general';
+  String categoryBudgetId(DateTime month, String category) =>
+      'budget:${budgetKey(month)}:${categoryIdFor(false, category)}';
+  List<String> categoriesFor(bool income) =>
+      income ? incomeCategories : expenseCategories;
+  void addCategory(bool income, String name) {
+    final value = name.trim();
+    if (value.isEmpty || value.length > 40) {
+      throw ArgumentError('Kategori adı 1–40 karakter olmalı.');
+    }
+    final categories = categoriesFor(income);
+    if (categories.any((c) => c.toLowerCase() == value.toLowerCase())) {
+      throw ArgumentError('Bu kategori zaten var.');
+    }
+    categories.add(value);
+    categoryIdsFor(income).putIfAbsent(value, uid);
+  }
+
+  void renameCategory(bool income, String oldName, String newName) {
+    final categories = categoriesFor(income);
+    final index = categories.indexOf(oldName);
+    if (index < 0) throw ArgumentError('Kategori bulunamadı.');
+    final value = newName.trim();
+    if (value.isEmpty || value.length > 40) {
+      throw ArgumentError('Kategori adı 1–40 karakter olmalı.');
+    }
+    if (categories.any(
+      (c) => c != oldName && c.toLowerCase() == value.toLowerCase(),
+    )) {
+      throw ArgumentError('Bu kategori zaten var.');
+    }
+    if (oldName != value && categoryIdsFor(income).containsKey(value)) {
+      throw ArgumentError('Bu ad geçmiş bir kategoriye ait.');
+    }
+    if (!income &&
+        categoryBudgets.values.any(
+          (monthly) =>
+              monthly.containsKey(oldName) &&
+              monthly.containsKey(value) &&
+              oldName != value,
+        )) {
+      throw ArgumentError('Yeni adla bir kategori bütçesi zaten var.');
+    }
+    categories[index] = value;
+    final ids = categoryIdsFor(income);
+    ids[value] = ids.remove(oldName) ?? uid();
+    for (final entry in entries.where(
+      (e) => e.income == income && e.category == oldName,
+    )) {
+      entry.category = value;
+    }
+    for (final rule in rules.where(
+      (r) => r.income == income && r.category == oldName,
+    )) {
+      rule.category = value;
+    }
+    if (!income) {
+      for (final monthly in categoryBudgets.values) {
+        if (monthly.containsKey(oldName)) {
+          monthly[value] = monthly.remove(oldName)!;
+        }
+      }
+    }
+  }
+
+  void removeCategory(bool income, String name) {
+    if (!categoriesFor(income).remove(name)) {
+      throw ArgumentError('Kategori bulunamadı.');
+    }
+    // Historical entries and recurrence rules keep their original label.
+    // Their edit forms include that label even if it is no longer selectable
+    // for new entries.
+  }
+
   bool dark = true, followSystem = true, motion = true, busy = false;
   String? pinned;
   int get income =>
@@ -224,40 +385,151 @@ class FinanceStore extends ChangeNotifier {
       ? null
       : goals.firstWhere((g) => g.id == pinned, orElse: () => goals.first);
   String budgetKey(DateTime d) => '${d.year}-${d.month}';
+  int categorySpent(DateTime month, String category) => entries
+      .where(
+        (e) =>
+            !e.income &&
+            e.category == category &&
+            e.date.year == month.year &&
+            e.date.month == month.month,
+      )
+      .fold(0, (sum, entry) => sum + entry.amount);
+  void updateRecurringEntry(Entry original, Entry replacement, int scope) {
+    final ruleId = original.rule;
+    if (scope < 0 || scope > 2) {
+      throw ArgumentError('Geçersiz düzenleme kapsamı.');
+    }
+    if (scope == 0 || ruleId == null) {
+      final index = entries.indexWhere((e) => e.id == original.id);
+      if (index < 0) throw StateError('Kayıt bulunamadı.');
+      entries[index] = replacement;
+      return;
+    }
+    for (final entry in entries.where(
+      (e) =>
+          e.rule == ruleId && (scope == 2 || !e.date.isBefore(original.date)),
+    )) {
+      entry.title = replacement.title;
+      entry.amount = replacement.amount;
+      entry.category = replacement.category;
+      entry.note = replacement.note;
+    }
+    final rule = rules.where((r) => r.id == ruleId).firstOrNull;
+    if (rule != null) {
+      rule.title = replacement.title;
+      rule.amount = replacement.amount;
+      rule.category = replacement.category;
+      rule.note = replacement.note;
+    }
+  }
+
   Map<String, dynamic> json() => {
+    'schemaVersion': financeSchemaVersion,
     'entries': entries.map((e) => e.json()).toList(),
     'rules': rules.map((e) => e.json()).toList(),
     'goals': goals.map((e) => e.json()).toList(),
     'transfers': transfers.map((e) => e.json()).toList(),
     'budgets': budgets,
+    'categoryBudgets': categoryBudgets,
+    'notificationsEnabled': notificationsEnabled,
+    'showWidgetBalance': showWidgetBalance,
+    'sentBudgetAlerts': sentBudgetAlerts.toList(),
+    'incomeCategories': incomeCategories,
+    'expenseCategories': expenseCategories,
+    'incomeCategoryIds': incomeCategoryIds,
+    'expenseCategoryIds': expenseCategoryIds,
     'dark': dark,
     'followSystem': followSystem,
     'motion': motion,
     'pinned': pinned,
   };
   void restore(Map<String, dynamic> j) {
-    entries = (j['entries'] as List)
+    final document = migrateFinanceDocument(j);
+    // Parse every field before replacing any live state.
+    final nextEntries = (document['entries'] as List)
         .map((e) => Entry.read(Map<String, dynamic>.from(e)))
         .toList();
-    rules = (j['rules'] as List)
+    final nextRules = (document['rules'] as List)
         .map((e) => RepeatRule.read(Map<String, dynamic>.from(e)))
         .toList();
-    goals = (j['goals'] as List)
+    final nextGoals = (document['goals'] as List)
         .map((e) => Goal.read(Map<String, dynamic>.from(e)))
         .toList();
-    transfers = (j['transfers'] as List)
+    final nextTransfers = (document['transfers'] as List)
         .map((e) => Transfer.read(Map<String, dynamic>.from(e)))
         .toList();
-    budgets = Map<String, int>.from(j['budgets']);
-    dark = j['dark'];
-    followSystem = j['followSystem'] ?? true;
-    motion = j['motion'];
-    pinned = j['pinned'];
+    final nextBudgets = Map<String, int>.from(document['budgets']);
+    final nextCategoryBudgets = (document['categoryBudgets'] as Map).map(
+      (key, value) =>
+          MapEntry(key as String, Map<String, int>.from(value as Map)),
+    );
+    final nextNotificationsEnabled =
+        document['notificationsEnabled'] as bool? ?? false;
+    final nextShowWidgetBalance =
+        document['showWidgetBalance'] as bool? ?? false;
+    final nextSentBudgetAlerts = Set<String>.from(
+      document['sentBudgetAlerts'] as List? ?? const <String>[],
+    );
+    final nextIncomeCategories = List<String>.from(
+      document['incomeCategories'] ?? defaultIncomeCategories,
+    );
+    final nextExpenseCategories = List<String>.from(
+      document['expenseCategories'] ?? defaultExpenseCategories,
+    );
+    Map<String, String> readCategoryIds(String key, bool income) {
+      final raw = document[key];
+      final ids = raw == null
+          ? <String, String>{}
+          : Map<String, String>.from(raw as Map);
+      final labels = <String>{
+        ...income ? nextIncomeCategories : nextExpenseCategories,
+        ...nextEntries.where((e) => e.income == income).map((e) => e.category),
+        ...nextRules.where((r) => r.income == income).map((r) => r.category),
+        if (!income)
+          ...nextCategoryBudgets.values.expand((monthly) => monthly.keys),
+      };
+      for (final label in labels) {
+        ids.putIfAbsent(
+          label,
+          () =>
+              '${income ? 'income' : 'expense'}:${Uri.encodeComponent(label)}',
+        );
+      }
+      if (ids.values.toSet().length != ids.length ||
+          ids.values.any((id) => id.isEmpty)) {
+        throw const FormatException('Kategori kimlikleri geçersiz.');
+      }
+      return ids;
+    }
+
+    final nextIncomeCategoryIds = readCategoryIds('incomeCategoryIds', true);
+    final nextExpenseCategoryIds = readCategoryIds('expenseCategoryIds', false);
+    final nextDark = document['dark'] as bool;
+    final nextFollowSystem = document['followSystem'] as bool? ?? true;
+    final nextMotion = document['motion'] as bool;
+    final nextPinned = document['pinned'] as String?;
+    entries = nextEntries;
+    rules = nextRules;
+    goals = nextGoals;
+    transfers = nextTransfers;
+    budgets = nextBudgets;
+    categoryBudgets = nextCategoryBudgets;
+    notificationsEnabled = nextNotificationsEnabled;
+    showWidgetBalance = nextShowWidgetBalance;
+    sentBudgetAlerts = nextSentBudgetAlerts;
+    incomeCategories = nextIncomeCategories;
+    expenseCategories = nextExpenseCategories;
+    incomeCategoryIds = nextIncomeCategoryIds;
+    expenseCategoryIds = nextExpenseCategoryIds;
+    dark = nextDark;
+    followSystem = nextFollowSystem;
+    motion = nextMotion;
+    pinned = nextPinned;
   }
 
   Future<void> load() async {
     final raw = await read();
-    if (raw != null) restore(jsonDecode(raw));
+    if (raw != null) restore(decodeFinanceDocument(raw));
     await catchUp();
     notifyListeners();
   }
@@ -279,7 +551,9 @@ class FinanceStore extends ChangeNotifier {
   }
 
   void materialize(DateTime now) {
-    for (final r in rules.where((r) => r.active)) {
+    for (final r in rules.where(
+      (r) => r.active && (!r.isBill || r.automaticPayment),
+    )) {
       while (!r.occurrence(r.cursor).isAfter(day(now))) {
         final date = r.occurrence(r.cursor);
         final id = '${r.id}:${r.cursor}';
@@ -306,11 +580,50 @@ class FinanceStore extends ChangeNotifier {
     final today = now ?? DateTime.now();
     if (!busy &&
         rules.any(
-          (r) => r.active && !r.occurrence(r.cursor).isAfter(day(today)),
+          (r) =>
+              r.active &&
+              (!r.isBill || r.automaticPayment) &&
+              !r.occurrence(r.cursor).isAfter(day(today)),
         )) {
       await change(() => materialize(today));
     }
   }
+
+  int firstUnpaidBillPeriod(RepeatRule rule) {
+    var index = 0;
+    while (entries.any((entry) => entry.id == '${rule.id}:$index')) {
+      index++;
+    }
+    return index;
+  }
+
+  Future<void> markBillPaid(RepeatRule rule, int period, {DateTime? paidAt}) =>
+      change(() {
+        if (!rule.isBill || rule.automaticPayment || period < 0) {
+          throw StateError('Bu ödeme manuel fatura değil.');
+        }
+        final due = rule.occurrence(period);
+        final paymentDate = paidAt ?? DateTime.now();
+        if (due.isAfter(day(paymentDate))) {
+          throw StateError('Henüz vadesi gelmedi.');
+        }
+        final id = '${rule.id}:$period';
+        if (entries.any((entry) => entry.id == id)) {
+          throw StateError('Bu fatura zaten ödendi.');
+        }
+        entries.add(
+          Entry(
+            id: id,
+            title: rule.title,
+            amount: rule.amount,
+            income: false,
+            date: day(paymentDate),
+            category: rule.category,
+            note: rule.note,
+            rule: rule.id,
+          ),
+        );
+      });
 
   Future<void> move(Goal goal, int amount) => change(() {
     if (amount > 0 && amount > balance) {
@@ -329,6 +642,18 @@ class FinanceStore extends ChangeNotifier {
     goals.clear();
     transfers.clear();
     budgets.clear();
+    categoryBudgets.clear();
+    sentBudgetAlerts.clear();
+    incomeCategories = [...defaultIncomeCategories];
+    expenseCategories = [...defaultExpenseCategories];
+    incomeCategoryIds = {
+      for (final name in defaultIncomeCategories)
+        name: 'income:${Uri.encodeComponent(name)}',
+    };
+    expenseCategoryIds = {
+      for (final name in defaultExpenseCategories)
+        name: 'expense:${Uri.encodeComponent(name)}',
+    };
     pinned = null;
   });
 }

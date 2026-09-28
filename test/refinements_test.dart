@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gelir_gider/data/store.dart';
-import 'package:gelir_gider/ui/app.dart';
-import 'package:gelir_gider/ui/forms.dart';
-import 'package:gelir_gider/ui/widgets.dart';
+import 'package:birikio/data/store.dart';
+import 'package:birikio/ui/app.dart';
+import 'package:birikio/ui/forms.dart';
+import 'package:birikio/ui/widgets.dart';
 
 void main() {
   testWidgets('Expense name is optional but amount remains necessary', (
@@ -38,7 +38,7 @@ void main() {
       await tester.pumpWidget(BirikioApp(store: store));
       await tester.pump(const Duration(milliseconds: 800));
       expect(find.byType(RacingMotor), findsOneWidget);
-      for (final label in ['Gelir', 'Birikim', 'Analiz', 'Anasayfa']) {
+      for (final label in ['Gelir & Gider', 'Cüzdan', 'Analiz', 'Anasayfa']) {
         await tester.tap(find.text(label).last);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 180));

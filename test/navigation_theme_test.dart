@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gelir_gider/data/store.dart';
-import 'package:gelir_gider/ui/app.dart';
+import 'package:birikio/data/store.dart';
+import 'package:birikio/ui/app.dart';
 
 void main() {
   testWidgets(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gelir_gider/data/store.dart';
-import 'package:gelir_gider/ui/app.dart';
-import 'package:gelir_gider/ui/palette.dart';
-import 'package:gelir_gider/ui/widgets.dart';
+import 'package:birikio/data/store.dart';
+import 'package:birikio/ui/app.dart';
+import 'package:birikio/ui/palette.dart';
+import 'package:birikio/ui/widgets.dart';
 
 double contrast(Color a, Color b) {
   final x = a.computeLuminance(), y = b.computeLuminance();
@@ -113,6 +113,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.widgetWithText(TextField, 'Tutar'), '100');
       await tester.tap(find.text('Bakiyeme geri al'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 700));
       await tester.pumpAndSettle();
       expect(find.byType(AchievementScene), findsNothing);
       expect(find.byType(GoalScene), findsOneWidget);

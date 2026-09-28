@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'app_version.dart';
 import '../data/store.dart';
 import 'brand.dart';
 import 'palette.dart';
@@ -185,6 +186,8 @@ class _BirikioLaunchState extends State<BirikioLaunch>
                                             letterSpacing: .3,
                                           ),
                                         ),
+                                        const SizedBox(height: 10),
+                                        const AppVersion(),
                                       ],
                                     ),
                                   ),

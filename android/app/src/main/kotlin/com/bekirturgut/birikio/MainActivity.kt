@@ -1,4 +1,4 @@
-package com.example.gelir_gider
+package com.bekirturgut.birikio
 
 import io.flutter.embedding.android.FlutterActivity
 

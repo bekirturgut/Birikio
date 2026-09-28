@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/store.dart';
+import '../data/analytics.dart';
 import 'widgets.dart';
 import 'palette.dart';
 import 'forms.dart';
@@ -26,6 +27,7 @@ class _BudgetPageState extends State<BudgetPage> {
               e.date.month == selected.month,
         )
         .fold(0, (v, e) => v + e.amount);
+    final categoryLimits = s.categoryBudgets[key] ?? {};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -140,11 +142,235 @@ class _BudgetPageState extends State<BudgetPage> {
           ),
         ),
         SizedBox(height: 18),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Kategori bütçeleri',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => editCategoryBudget(),
+              icon: const Icon(Icons.add_rounded, size: 17),
+              label: const Text('Ekle'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (categoryLimits.isEmpty)
+          Panel(
+            child: Text(
+              'Henüz kategori limiti yok. Harcamalarını kategori kategori planlayabilirsin.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else
+          ...categoryLimits.entries.map((item) {
+            final used = s.categorySpent(selected, item.key);
+            final exceeded = used > item.value;
+            final color = exceeded
+                ? financeColors(context).negative
+                : financeColors(context).positive;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.key,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '${item.key} limitini düzenle',
+                          onPressed: () => editCategoryBudget(
+                            category: item.key,
+                            current: item.value,
+                          ),
+                          icon: const Icon(Icons.tune_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${money(used)} / ${money(item.value)} · %${(used / item.value * 100).round()}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (used / item.value).clamp(0, 1),
+                        minHeight: 8,
+                        color: color,
+                        backgroundColor: color.withValues(alpha: .12),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      exceeded
+                          ? '${money(used - item.value)} aşıldı'
+                          : '${money(item.value - used)} kaldı',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 14),
         Text(
-          'Bütçe limiti bir harcama hedefidir. Kullanılabilir bakiyeni değiştirmez. Birikime ayırdığın tutarlar bu limite dahil edilmez.',
+          'Genel limit ve kategori limitleri ayrı planlardır; kategori limitlerinin toplamı genel limiti değiştirmez. Kategori limiti olmayan giderler de genel harcamaya dahildir. Bütçeler bakiyeni değiştirmez.',
           style: TextStyle(fontSize: 12, height: 1.7),
         ),
       ],
+    );
+  }
+
+  Future<void> editCategoryBudget({String? category, int? current}) async {
+    final availableCategories = widget.store.expenseCategories
+        .where(
+          (name) =>
+              !(widget.store.categoryBudgets[widget.store.budgetKey(
+                        selected,
+                      )] ??
+                      {})
+                  .containsKey(name),
+        )
+        .toList();
+    var selectedCategory = category ?? availableCategories.firstOrNull;
+    if (selectedCategory == null) return;
+    var amountText = current == null
+        ? ''
+        : (current / 100).toStringAsFixed(2).replaceAll('.', ',');
+    String? error;
+    var saving = false;
+    await sheet(
+      context,
+      StatefulBuilder(
+        builder: (dialogContext, update) => FormShell(
+          title: category == null
+              ? 'Kategori limiti ekle'
+              : 'Kategori limitini düzenle',
+          subtitle: '${months[selected.month - 1]} ${selected.year}',
+          children: [
+            if (category == null)
+              DropdownButtonFormField<String>(
+                initialValue: selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Gider kategorisi',
+                ),
+                items: availableCategories
+                    .map(
+                      (name) =>
+                          DropdownMenuItem(value: name, child: Text(name)),
+                    )
+                    .toList(),
+                onChanged: (value) => selectedCategory = value,
+              )
+            else
+              Text(
+                category,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            const SizedBox(height: 16),
+            TextFormField(
+              initialValue: amountText,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Aylık limit',
+                suffixText: '₺',
+                errorText: error,
+              ),
+              onChanged: (value) => amountText = value,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final value = parseMoney(amountText);
+                      if (value == null || selectedCategory == null) {
+                        update(() => error = 'Geçerli bir tutar gir.');
+                        return;
+                      }
+                      update(() => saving = true);
+                      try {
+                        await widget.store.change(() {
+                          final monthly = widget.store.categoryBudgets
+                              .putIfAbsent(
+                                widget.store.budgetKey(selected),
+                                () => {},
+                              );
+                          monthly[selectedCategory!] = value;
+                        });
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                        if (mounted) setState(() {});
+                      } catch (_) {
+                        if (dialogContext.mounted) {
+                          update(() {
+                            saving = false;
+                            error = 'Kaydedilemedi.';
+                          });
+                        }
+                      }
+                    },
+              child: Text(saving ? 'Kaydediliyor…' : 'Limiti kaydet'),
+            ),
+            if (category != null)
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        update(() => saving = true);
+                        try {
+                          await widget.store.change(() {
+                            widget
+                                .store
+                                .categoryBudgets[widget.store.budgetKey(
+                                  selected,
+                                )]
+                                ?.remove(category);
+                          });
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
+                          if (mounted) setState(() {});
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            update(() {
+                              saving = false;
+                              error = 'Kaldırılamadı.';
+                            });
+                          }
+                        }
+                      },
+                child: const Text('Limiti kaldır'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -246,6 +472,14 @@ class AnalysisPage extends StatefulWidget {
 }
 
 class _AnalysisPageState extends State<AnalysisPage> {
+  String _changeText(int current, int previous) {
+    if (previous == 0) {
+      return current == 0 ? 'değişim yok' : 'önceki dönemde kayıt yok';
+    }
+    final percent = ((current - previous) / previous * 100).round();
+    return '${percent >= 0 ? '+' : ''}%$percent';
+  }
+
   int mode = 2;
   DateTime selected = day(DateTime.now());
   DateTime get start => switch (mode) {
@@ -273,6 +507,20 @@ class _AnalysisPageState extends State<AnalysisPage> {
   };
   @override
   Widget build(BuildContext context) {
+    final previousStart = switch (mode) {
+      0 => start.subtract(const Duration(days: 1)),
+      1 => start.subtract(const Duration(days: 7)),
+      2 => DateTime(start.year, start.month - 1),
+      _ => DateTime(start.year - 1),
+    };
+    final insights = calculateInsights(
+      widget.store,
+      start,
+      end,
+      previousStart: previousStart,
+      now: DateTime.now(),
+      monthly: mode == 2,
+    );
     final list = between(start, end),
         income = sum(between(start, end), true),
         expense = sum(between(start, end), false);
@@ -396,6 +644,60 @@ class _AnalysisPageState extends State<AnalysisPage> {
             ],
           ),
         ),
+        SizedBox(height: 18),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Eyebrow('HARCAMA İÇGÖRÜLERİ'),
+              const SizedBox(height: 14),
+              Text(
+                'Önceki döneme göre gelir: ${_changeText(income, insights.previousIncome)}',
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Önceki döneme göre gider: ${_changeText(expense, insights.previousExpense)}',
+              ),
+              const SizedBox(height: 6),
+              Text('Günlük ortalama gider: ${money(insights.dailyAverage)}'),
+              if (insights.topCategory != null) ...[
+                const SizedBox(height: 6),
+                Text('En çok harcanan kategori: ${insights.topCategory}'),
+              ],
+              if (insights.highestDay != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'En yüksek harcama günü: ${dateLabel(insights.highestDay!)}',
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                'Hedeflere aktarılan net tutar: ${money(insights.goalTransfers)}',
+              ),
+              if (insights.projectedMonthlyExpense != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Ay sonu gider tahmini: ${money(insights.projectedMonthlyExpense!)}',
+                ),
+                Text(
+                  'Şimdiye kadarki günlük ortalama ayın kalanında sürerse; en az 7 günlük kayıtla hesaplanır.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if ((widget.store.budgets[widget.store.budgetKey(start)] ?? 0) >
+                    0)
+                  Text(
+                    insights.projectedMonthlyExpense! >
+                            widget.store.budgets[widget.store.budgetKey(start)]!
+                        ? 'Bu hızla aylık limit aşılabilir.'
+                        : 'Bu hızla aylık limit içinde kalınabilir.',
+                  ),
+              ],
+            ],
+          ),
+        ),
         SizedBox(height: 26),
         Text(
           'Paran nereye gidiyor?',
@@ -407,10 +709,56 @@ class _AnalysisPageState extends State<AnalysisPage> {
             children: [
               if (sorted.isEmpty)
                 Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'Bu dönemde gider kaydı yok.',
-                    style: TextStyle(fontSize: 13),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 12,
+                  ),
+                  child: Column(
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: .75, end: 1),
+                        duration: Duration(
+                          milliseconds: MediaQuery.disableAnimationsOf(context)
+                              ? 0
+                              : 600,
+                        ),
+                        curve: Curves.easeOutBack,
+                        builder: (_, value, child) =>
+                            Transform.scale(scale: value, child: child),
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: financeColors(
+                              context,
+                            ).accent.withValues(alpha: .1),
+                          ),
+                          child: Icon(
+                            Icons.donut_small_rounded,
+                            color: financeColors(context).accent,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Bu dönemde gider kaydı yok.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Kayıt eklediğinde kategori dağılımın burada belirecek.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ...sorted.map(

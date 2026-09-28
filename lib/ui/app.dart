@@ -1,15 +1,25 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
+import 'package:file_selector/file_selector.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import '../data/store.dart';
+import '../data/analytics.dart';
+import '../data/backup.dart';
+import '../services/local_notifications.dart';
+import '../services/home_summary_widget.dart';
 import 'widgets.dart';
 import 'palette.dart';
 import 'forms.dart';
 import 'reports.dart';
 import 'brand.dart';
 import 'launch.dart';
+import 'widget_picker.dart';
+import 'app_version.dart';
 
 class BirikioApp extends StatelessWidget {
   final FinanceStore store;
@@ -114,27 +124,49 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   FinanceStore get s => widget.store;
   int page = 0;
   String query = '';
+  int entryFilter = 0; // 0: all, 1: income, 2: expense
+  int walletFilter = 0; // 0: all, 1: savings, 2: budget
+  String? categoryFilter;
+  DateTimeRange? entryDateRange;
+  int? entryMinAmount;
+  int? entryMaxAmount;
+  bool? recurringFilter;
+  int entrySort = 0; // newest, oldest, highest, lowest
   bool? burst;
   int burstKey = 0;
   Timer? timer;
-  final titles = [
-    'Genel bakış',
-    'Gelirler',
-    'Giderler',
-    'Birikimler',
-    'Bütçem',
-    'Analiz',
-  ];
+  final titles = ['Genel bakış', 'Gelir & Gider', 'Cüzdan', 'Analiz', 'Profil'];
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    s.addListener(onStoreChanged);
     timer = Timer.periodic(Duration(minutes: 1), (_) => refresh());
+    Future<void>.delayed(Duration.zero, () => onStoreChanged());
+  }
+
+  void onStoreChanged() {
+    if (!mounted) return;
+    Future<void>.delayed(Duration.zero, () async {
+      if (!mounted || s.busy) return;
+      try {
+        await HomeSummaryWidget.sync(s);
+      } catch (_) {
+        // The app stays usable when the launcher has no widget support.
+      }
+      if (!s.notificationsEnabled) return;
+      try {
+        await LocalNotifications.instance.sync(s);
+      } catch (_) {
+        // In-app budget and overdue states still work without OS delivery.
+      }
+    });
   }
 
   @override
   void dispose() {
     timer?.cancel();
+    s.removeListener(onStoreChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -186,7 +218,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       EntryForm(store: s, income: income, entry: entry),
     );
     if (ok == true && mounted) {
-      animateMoney(income);
+      if (entry == null) animateMoney(income);
       toast(entry == null ? 'Kayıt eklendi.' : 'Kayıt güncellendi.');
     }
   }
@@ -343,17 +375,23 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                         ),
                         SizedBox(width: 10),
                         Expanded(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Birikio',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -1,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Birikio',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 7),
+                              const AppVersion(badge: true),
+                            ],
                           ),
                         ),
                         SizedBox(width: 12),
@@ -440,8 +478,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                                   Padding(
                                     padding: EdgeInsets.only(bottom: 6),
                                     child: Icon(
-                                      Icons.wb_twilight_rounded,
-                                      color: financeColors(context).accent,
+                                      Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Icons.nightlight_round
+                                          : Icons.wb_sunny_rounded,
+                                      color:
+                                          Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? financeColors(context).accent
+                                          : financeColors(context).gold,
                                       size: 30,
                                     ),
                                   ),
@@ -449,10 +494,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                             ),
                             SizedBox(height: 22),
                             if (page == 0) ...dashboard(),
-                            if (page == 1 || page == 2) ...entryPage(page == 1),
-                            if (page == 3) ...goalPage(),
-                            if (page == 4) BudgetPage(store: s),
-                            if (page == 5) AnalysisPage(store: s),
+                            if (page == 1) ...entryPage(),
+                            if (page == 2) ...walletPage(),
+                            if (page == 3) AnalysisPage(store: s),
+                            if (page == 4) ...profilePage(),
                           ],
                         ),
                       ),
@@ -497,22 +542,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             ),
             padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
             child: Row(
-              children: List.generate(6, (i) {
+              children: List.generate(5, (i) {
                 final icons = [
                   Icons.space_dashboard_rounded,
-                  Icons.south_west_rounded,
-                  Icons.north_east_rounded,
-                  Icons.savings_outlined,
+                  Icons.swap_vert_rounded,
                   Icons.account_balance_wallet_outlined,
                   Icons.bar_chart_rounded,
+                  Icons.person_outline_rounded,
                 ];
                 final labels = [
                   'Anasayfa',
-                  'Gelir',
-                  'Gider',
-                  'Birikim',
-                  'Bütçe',
+                  'Gelir & Gider',
+                  'Cüzdan',
                   'Analiz',
+                  'Profil',
                 ];
                 final active = page == i;
                 return Expanded(
@@ -575,6 +618,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   List<Widget> dashboard() {
     final now = DateTime.now();
+    final overdueBills = s.rules
+        .where(
+          (r) =>
+              r.isBill &&
+              !r.automaticPayment &&
+              r.active &&
+              r.occurrence(s.firstUnpaidBillPeriod(r)).isBefore(day(now)),
+        )
+        .toList();
     final entries = s.entries.where(
       (e) => e.date.year == now.year && e.date.month == now.month,
     );
@@ -584,6 +636,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final outgoing = entries
         .where((e) => !e.income)
         .fold(0, (v, e) => v + e.amount);
+    final transferred = s.transfers
+        .where((t) => t.date.year == now.year && t.date.month == now.month)
+        .fold<int>(0, (sum, t) => sum + t.amount);
+    final score = budgetManagementScore(s, now);
     return [
       if (s.featured != null)
         goalCard(s.featured!, featured: true)
@@ -638,6 +694,70 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           Expanded(child: statCard(false, outgoing)),
         ],
       ),
+      const SizedBox(height: 12),
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Eyebrow('BU AYIN FİNANSAL ÖZETİ'),
+            const SizedBox(height: 12),
+            Text('Gelir ${money(incoming)} · Gider ${money(outgoing)}'),
+            const SizedBox(height: 5),
+            Text('Hedeflere net aktarılan ${money(transferred)}'),
+            const SizedBox(height: 5),
+            Text(
+              incoming > 0
+                  ? 'Hedeflere ayrılan / gelir: %${(transferred / incoming * 100).round()}'
+                  : 'Birikim oranı için bu ay gelir kaydı gerekiyor.',
+            ),
+            const SizedBox(height: 14),
+            Text(
+              score == null
+                  ? 'Bütçe puanı için genel veya kategori limiti belirle.'
+                  : 'Bütçe yönetimi puanı: $score / 100',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (score != null) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: score / 100,
+                minHeight: 7,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                'Genel ve kategori limitlerinin kullanım oranı eşit ağırlıkla alınır. Her %2 kullanım puanı 1 azaltır; puan 0–100 aralığında kalır.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      if (overdueBills.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        Panel(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.notification_important_rounded,
+              color: financeColors(context).negative,
+            ),
+            title: Text(
+              '${overdueBills.length} gecikmiş ödemen var',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: const Text('Düzenli ödemelerini kontrol et'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              navigate(1);
+              setState(() => entryFilter = 2);
+            },
+          ),
+        ),
+      ],
       heading('Son hareketler', action: 'Tümünü gör →', onTap: allEntries),
       if (s.entries.isEmpty)
         EmptyState(
@@ -669,7 +789,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   Widget statCard(bool income, int amount) => InkWell(
     borderRadius: BorderRadius.circular(26),
-    onTap: () => navigate(income ? 1 : 2),
+    onTap: () {
+      navigate(1);
+      setState(() {
+        entryFilter = income ? 1 : 2;
+        categoryFilter = null;
+      });
+    },
     child: Panel(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -774,6 +900,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final accent = completed ? colors.positive : colors.accent;
     final text = completed ? colors.completedText : colors.goalText;
     final muted = completed ? colors.completedMuted : colors.goalMuted;
+    final monthlyNeeded = requiredMonthlySaving(goal, saved, DateTime.now());
+    final projected = projectedGoalDate(goal, saved, DateTime.now());
     return AnimatedContainer(
       key: ValueKey('goal-card-${goal.id}'),
       duration: Duration(
@@ -977,6 +1105,53 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               ),
             ],
           ),
+          if (goal.targetDate != null || goal.monthlyContribution != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (goal.targetDate != null)
+                    Text(
+                      'Hedef tarihi: ${dateLabel(goal.targetDate!)}',
+                      style: TextStyle(color: text, fontSize: 11),
+                    ),
+                  if (!completed && goal.targetDate != null)
+                    Text(
+                      monthsUntil(DateTime.now(), goal.targetDate!) == 0
+                          ? 'Hedef tarihi geçti veya bugün'
+                          : '${monthsUntil(DateTime.now(), goal.targetDate!)} ay kaldı',
+                      style: TextStyle(color: muted, fontSize: 11),
+                    ),
+                  if (goal.monthlyContribution != null)
+                    Text(
+                      'Aylık plan: ${money(goal.monthlyContribution!)}',
+                      style: TextStyle(color: text, fontSize: 11),
+                    ),
+                  if (!completed && monthlyNeeded != null)
+                    Text(
+                      'Zamanında ulaşmak için ayda yaklaşık ${money(monthlyNeeded)} gerekli',
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if (!completed && projected != null)
+                    Text(
+                      'Planına göre tahmini bitiş: ${dateLabel(projected)}',
+                      style: TextStyle(color: muted, fontSize: 11),
+                    ),
+                ],
+              ),
+            ),
+          ],
           if (completed)
             Align(
               alignment: Alignment.centerLeft,
@@ -1123,43 +1298,384 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ],
     ),
   );
-  List<Widget> entryPage(bool income) {
+  void entryFilters() {
+    DateTimeRange? range = entryDateRange;
+    var minText = entryMinAmount == null
+        ? ''
+        : (entryMinAmount! / 100).toStringAsFixed(2).replaceAll('.', ',');
+    var maxText = entryMaxAmount == null
+        ? ''
+        : (entryMaxAmount! / 100).toStringAsFixed(2).replaceAll('.', ',');
+    bool? repeat = recurringFilter;
+    var order = entrySort;
+    String? error;
+    sheet(
+      context,
+      StatefulBuilder(
+        builder: (dialogContext, update) => FormShell(
+          title: 'Filtrele ve sırala',
+          subtitle: 'Aradığın hareketleri kolayca bul.',
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.date_range_rounded),
+              title: Text(
+                range == null
+                    ? 'Tüm tarihler'
+                    : '${dateLabel(range!.start)} – ${dateLabel(range!.end)}',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () async {
+                final picked = await showDateRangePicker(
+                  context: dialogContext,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                  initialDateRange: range,
+                );
+                if (picked != null) update(() => range = picked);
+              },
+            ),
+            if (range != null)
+              TextButton(
+                onPressed: () => update(() => range = null),
+                child: const Text('Tarih aralığını temizle'),
+              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: minText,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'En az',
+                      suffixText: '₺',
+                    ),
+                    onChanged: (value) => minText = value,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: maxText,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'En çok',
+                      suffixText: '₺',
+                    ),
+                    onChanged: (value) => maxText = value,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              isExpanded: true,
+              initialValue: repeat == null ? 0 : (repeat == true ? 1 : 2),
+              decoration: const InputDecoration(labelText: 'Tekrarlama'),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('Tümü')),
+                DropdownMenuItem(value: 1, child: Text('Tekrarlayan')),
+                DropdownMenuItem(value: 2, child: Text('Tek seferlik')),
+              ],
+              onChanged: (value) => repeat = value == 0 ? null : value == 1,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              isExpanded: true,
+              initialValue: order,
+              decoration: const InputDecoration(labelText: 'Sıralama'),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('En yeni')),
+                DropdownMenuItem(value: 1, child: Text('En eski')),
+                DropdownMenuItem(
+                  value: 2,
+                  child: Text('Tutar: yüksekten düşüğe'),
+                ),
+                DropdownMenuItem(
+                  value: 3,
+                  child: Text('Tutar: düşükten yükseğe'),
+                ),
+              ],
+              onChanged: (value) => order = value ?? 0,
+            ),
+            if (error != null)
+              Text(
+                error!,
+                style: TextStyle(color: financeColors(context).negative),
+              ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () {
+                final min = minText.trim().isEmpty ? null : parseMoney(minText);
+                final max = maxText.trim().isEmpty ? null : parseMoney(maxText);
+                if ((minText.trim().isNotEmpty && min == null) ||
+                    (maxText.trim().isNotEmpty && max == null) ||
+                    (min != null && max != null && min > max)) {
+                  update(() => error = 'Tutar aralığını kontrol et.');
+                  return;
+                }
+                setState(() {
+                  entryDateRange = range;
+                  entryMinAmount = min;
+                  entryMaxAmount = max;
+                  recurringFilter = repeat;
+                  entrySort = order;
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Uygula'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  entryDateRange = null;
+                  entryMinAmount = null;
+                  entryMaxAmount = null;
+                  recurringFilter = null;
+                  entrySort = 0;
+                  categoryFilter = null;
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Tüm filtreleri temizle'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> entryPage() {
+    final availableCategories =
+        s.sorted
+            .where((e) => entryFilter == 0 || e.income == (entryFilter == 1))
+            .map((e) => e.category)
+            .toSet()
+            .toList()
+          ..sort();
+    if (categoryFilter != null &&
+        !availableCategories.contains(categoryFilter)) {
+      categoryFilter = null;
+    }
     final data = s.sorted
         .where(
           (e) =>
-              e.income == income &&
+              (entryFilter == 0 || e.income == (entryFilter == 1)) &&
+              (categoryFilter == null || e.category == categoryFilter) &&
+              (entryDateRange == null ||
+                  (!day(e.date).isBefore(day(entryDateRange!.start)) &&
+                      !day(e.date).isAfter(day(entryDateRange!.end)))) &&
+              (entryMinAmount == null || e.amount >= entryMinAmount!) &&
+              (entryMaxAmount == null || e.amount <= entryMaxAmount!) &&
+              (recurringFilter == null ||
+                  (e.rule != null) == recurringFilter) &&
               '${e.title} ${e.category} ${e.note}'.toLowerCase().contains(
                 query.toLowerCase(),
               ),
         )
         .toList();
-    final rules = s.rules.where((r) => r.income == income && r.active).toList();
+    if (entrySort == 1) {
+      data.sort((a, b) => a.date.compareTo(b.date));
+    } else if (entrySort == 2) {
+      data.sort((a, b) => b.amount.compareTo(a.amount));
+    } else if (entrySort == 3) {
+      data.sort((a, b) => a.amount.compareTo(b.amount));
+    }
+    final rules = s.rules
+        .where(
+          (r) =>
+              r.active &&
+              !r.isBill &&
+              (entryFilter == 0 || r.income == (entryFilter == 1)) &&
+              (categoryFilter == null || r.category == categoryFilter),
+        )
+        .toList();
+    final bills = s.rules
+        .where(
+          (r) =>
+              r.isBill &&
+              entryFilter != 1 &&
+              (categoryFilter == null || r.category == categoryFilter),
+        )
+        .toList();
+    final colors = financeColors(context);
+    final darkTheme = Theme.of(context).brightness == Brightness.dark;
+    final selectedColor = entryFilter == 2 ? colors.negative : colors.positive;
     return [
-      Panel(
+      Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: List.generate(3, (index) {
+            final selected = entryFilter == index;
+            final color = index == 2 ? colors.negative : colors.positive;
+            final labels = ['Tümü', 'Gelirler', 'Giderler'];
+            final icons = [
+              Icons.grid_view_rounded,
+              Icons.south_west_rounded,
+              Icons.north_east_rounded,
+            ];
+            return Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      entryFilter = index;
+                      categoryFilter = null;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: s.motion ? 280 : 0),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? color.withValues(alpha: darkTheme ? .23 : .13)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: selected
+                            ? color.withValues(alpha: .35)
+                            : Colors.transparent,
+                      ),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                color: color.withValues(alpha: .12),
+                                blurRadius: 16,
+                                offset: const Offset(0, 5),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          icons[index],
+                          size: 16,
+                          color: selected
+                              ? color
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              labels[index],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: selected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: selected
+                                    ? color
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+      const SizedBox(height: 16),
+      AnimatedContainer(
+        duration: Duration(milliseconds: s.motion ? 330 : 0),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              selectedColor.withValues(alpha: darkTheme ? .22 : .13),
+              Theme.of(context).colorScheme.surface,
+            ],
+          ),
+          border: Border.all(color: selectedColor.withValues(alpha: .16)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Eyebrow(
-              income
-                  ? 'TOPLAM GELİR · TÜM ZAMANLAR'
-                  : 'TOPLAM GİDER · TÜM ZAMANLAR',
+            Row(
+              children: [
+                Icon(Icons.auto_graph_rounded, size: 17, color: selectedColor),
+                const SizedBox(width: 8),
+                Eyebrow('TÜM ZAMANLAR'),
+              ],
             ),
-            SizedBox(height: 12),
-            Amount(
-              income ? s.income : s.expense,
-              size: 34,
-              color: income
-                  ? Theme.of(context).colorScheme.primary
-                  : financeColors(context).negative,
-            ),
-            SizedBox(height: 8),
+            const SizedBox(height: 18),
+            if (entryFilter == 0)
+              Row(
+                children: [
+                  Expanded(
+                    child: _entrySummaryMetric(
+                      'GELİR',
+                      s.income,
+                      colors.positive,
+                      Icons.south_west_rounded,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _entrySummaryMetric(
+                      'GİDER',
+                      s.expense,
+                      colors.negative,
+                      Icons.north_east_rounded,
+                    ),
+                  ),
+                ],
+              )
+            else
+              _entrySummaryMetric(
+                entryFilter == 1 ? 'TOPLAM GELİR' : 'TOPLAM GİDER',
+                entryFilter == 1 ? s.income : s.expense,
+                selectedColor,
+                entryFilter == 1
+                    ? Icons.south_west_rounded
+                    : Icons.north_east_rounded,
+                large: true,
+              ),
+            const SizedBox(height: 17),
+            Divider(color: selectedColor.withValues(alpha: .18), height: 1),
+            const SizedBox(height: 12),
             Text(
-              '${s.entries.where((e) => e.income == income).length} kayıt · ${rules.length} aktif tekrar',
-              style: TextStyle(fontSize: 12),
+              '${data.length} kayıt · ${rules.length} aktif tekrar',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
       ),
+      if (bills.isNotEmpty) ...[
+        heading('Düzenli ödemeler'),
+        ...bills.map(billCard),
+      ],
       if (rules.isNotEmpty) ...[
         heading('Otomatik kayıtlar'),
         ...rules.map(
@@ -1231,7 +1747,37 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         ),
       ],
-      heading('Kayıtların', action: '+ Ekle', onTap: () => addEntry(income)),
+      heading('Kayıtların', action: '+ Ekle', onTap: addMenu),
+      OutlinedButton.icon(
+        onPressed: entryFilters,
+        icon: const Icon(Icons.filter_list_rounded),
+        label: Text(
+          entryDateRange == null &&
+                  entryMinAmount == null &&
+                  entryMaxAmount == null &&
+                  recurringFilter == null &&
+                  entrySort == 0
+              ? 'Filtrele ve sırala'
+              : 'Filtreler etkin · düzenle',
+        ),
+      ),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        key: ValueKey('category-$entryFilter-$categoryFilter'),
+        initialValue: categoryFilter,
+        decoration: const InputDecoration(labelText: 'Kategoriye göre göster'),
+        items: [
+          const DropdownMenuItem<String>(
+            value: null,
+            child: Text('Tüm kategoriler'),
+          ),
+          ...availableCategories.map(
+            (c) => DropdownMenuItem(value: c, child: Text(c)),
+          ),
+        ],
+        onChanged: (value) => setState(() => categoryFilter = value),
+      ),
+      const SizedBox(height: 12),
       TextField(
         onChanged: (v) => setState(() => query = v),
         decoration: InputDecoration(
@@ -1247,7 +1793,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               ? 'İlk kaydını ekleyerek başlayabilirsin.'
               : 'Farklı bir kelimeyle aramayı dene.',
           action: 'Kayıt ekle',
-          onTap: () => addEntry(income),
+          onTap: addMenu,
           icon: Icons.receipt_long_outlined,
         )
       else
@@ -1255,6 +1801,388 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           padding: EdgeInsets.symmetric(horizontal: 14),
           child: Column(children: data.map(entryTile).toList()),
         ),
+    ];
+  }
+
+  Widget billCard(RepeatRule rule) {
+    final paid = s.entries.where((e) => e.rule == rule.id).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final period = rule.automaticPayment
+        ? rule.cursor
+        : s.firstUnpaidBillPeriod(rule);
+    final due = rule.occurrence(period);
+    final overdue = !rule.automaticPayment && due.isBefore(day(DateTime.now()));
+    final yearly = switch (rule.frequency) {
+      1 => rule.amount * 365,
+      2 => rule.amount * 52,
+      3 => rule.amount * 12,
+      _ => rule.amount,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.receipt_long_rounded,
+                  color: overdue
+                      ? financeColors(context).negative
+                      : financeColors(context).accent,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    rule.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  money(rule.amount),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${rule.automaticPayment
+                  ? 'Otomatik kayıt'
+                  : !rule.active
+                  ? 'Durduruldu'
+                  : overdue
+                  ? 'Gecikti'
+                  : 'Ödeme bekliyor'} · ${dateLabel(due)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: overdue
+                    ? financeColors(context).negative
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (paid.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Son ödeme: ${dateLabel(paid.first.date)} · Ödendi',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              '${rule.category} · ${frequencies[rule.frequency]} · Sonraki vade ${dateLabel(due)}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Aylık yaklaşık ${money((yearly / 12).round())} · Yıllık yaklaşık ${money(yearly)}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (rule.active &&
+                !rule.automaticPayment &&
+                !due.isAfter(day(DateTime.now()))) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    await s.markBillPaid(rule, period);
+                    if (mounted) setState(() {});
+                    toast('Ödeme kaydedildi.');
+                  } catch (_) {
+                    toast('Ödeme kaydedilemedi.');
+                  }
+                },
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Ödendi olarak işaretle'),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => editBill(rule),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Düzenle'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      await s.change(() => rule.active = !rule.active);
+                      if (mounted) setState(() {});
+                    },
+                    icon: Icon(
+                      rule.active
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_circle_outline_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      rule.active
+                          ? 'Gelecek ödemeleri durdur'
+                          : 'Ödemeleri sürdür',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> editBill(RepeatRule rule) async {
+    var title = rule.title;
+    var amount = (rule.amount / 100).toStringAsFixed(2).replaceAll('.', ',');
+    var category = rule.category;
+    final firstFuturePeriod = rule.automaticPayment
+        ? rule.cursor
+        : s.firstUnpaidBillPeriod(rule);
+    final applicableDueChanges =
+        rule.dueDayChanges.keys
+            .where((period) => period <= firstFuturePeriod)
+            .toList()
+          ..sort();
+    var dueDay =
+        (applicableDueChanges.isEmpty
+                ? rule.start.day
+                : rule.dueDayChanges[applicableDueChanges.last]!)
+            .toString();
+    var error = '';
+    await sheet(
+      context,
+      StatefulBuilder(
+        builder: (dialogContext, update) => FormShell(
+          title: 'Düzenli ödemeyi düzenle',
+          subtitle:
+              'Değişiklikler sonraki gider kayıtlarına uygulanır. Önceki ödemeler korunur.',
+          children: [
+            TextFormField(
+              initialValue: title,
+              decoration: const InputDecoration(labelText: 'Ad'),
+              onChanged: (value) => title = value,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: amount,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Tutar',
+                suffixText: '₺',
+              ),
+              onChanged: (value) => amount = value,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: category,
+              decoration: const InputDecoration(labelText: 'Kategori'),
+              items: {category, ...s.expenseCategories}
+                  .map(
+                    (name) => DropdownMenuItem(value: name, child: Text(name)),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) category = value;
+              },
+            ),
+            if (rule.frequency == 3 || rule.frequency == 4) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                initialValue: dueDay,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Vade günü (1–31)',
+                  helperText: 'Kısa aylarda son güne uyarlanır.',
+                ),
+                onChanged: (value) => dueDay = value,
+              ),
+            ],
+            if (error.isNotEmpty)
+              Text(
+                error,
+                style: TextStyle(color: financeColors(context).negative),
+              ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () async {
+                final cents = parseMoney(amount);
+                final parsedDay = int.tryParse(dueDay);
+                if (title.trim().isEmpty ||
+                    cents == null ||
+                    parsedDay == null ||
+                    parsedDay < 1 ||
+                    parsedDay > 31) {
+                  update(() => error = 'Ad, tutar ve vade gününü kontrol et.');
+                  return;
+                }
+                try {
+                  await s.change(() {
+                    rule.title = title.trim();
+                    rule.amount = cents;
+                    rule.category = category;
+                    if (rule.frequency == 3 || rule.frequency == 4) {
+                      rule.dueDayChanges[firstFuturePeriod] = parsedDay;
+                    }
+                  });
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } catch (_) {
+                  update(() => error = 'Kaydedilemedi.');
+                }
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _entrySummaryMetric(
+    String label,
+    int value,
+    Color color,
+    IconData icon, {
+    bool large = false,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 1.1,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        child: FittedBox(
+          alignment: Alignment.centerLeft,
+          fit: BoxFit.scaleDown,
+          child: Text(
+            money(value),
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: large ? 31 : 21,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.8,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  List<Widget> walletPage() {
+    final accent = financeColors(context).accent;
+    final labels = ['Tümü', 'Birikim', 'Bütçe'];
+    final icons = [
+      Icons.grid_view_rounded,
+      Icons.savings_rounded,
+      Icons.donut_large_rounded,
+    ];
+    return [
+      Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: List.generate(3, (index) {
+            final selected = walletFilter == index;
+            return Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => walletFilter = index);
+                  },
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: s.motion ? 280 : 0),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? accent.withValues(alpha: .16)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: selected
+                            ? accent.withValues(alpha: .34)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          icons[index],
+                          size: 16,
+                          color: selected
+                              ? accent
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              labels[index],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: selected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: selected
+                                    ? accent
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+      const SizedBox(height: 18),
+      if (walletFilter != 2) ...goalPage(),
+      if (walletFilter == 0) heading('Bütçen'),
+      if (walletFilter != 1) BudgetPage(store: s),
     ];
   }
 
@@ -1337,6 +2265,347 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
+  List<Widget> profilePage() {
+    final colors = financeColors(context);
+    final scheme = Theme.of(context).colorScheme;
+    return [
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colors.accent.withValues(alpha: .22),
+              colors.positive.withValues(alpha: .10),
+            ],
+          ),
+          border: Border.all(color: colors.accent.withValues(alpha: .20)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: .20),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(Icons.person_rounded, size: 34, color: colors.accent),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Senin alanın',
+              style: TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.7,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Finans yolculuğun bu cihazda, senin kontrolünde.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.positive.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.offline_bolt_rounded,
+                    size: 15,
+                    color: colors.positive,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Yalnızca bu cihazda',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colors.positive,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      heading('Birikio özetin'),
+      Row(
+        children: [
+          Expanded(
+            child: _profileStat(
+              'KAYIT',
+              '${s.entries.length}',
+              Icons.receipt_long_rounded,
+              colors.positive,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _profileStat(
+              'HEDEF',
+              '${s.goals.length}',
+              Icons.savings_rounded,
+              colors.accent,
+            ),
+          ),
+        ],
+      ),
+      heading('Tercihlerin'),
+      Panel(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 8,
+          ),
+          leading: Icon(Icons.category_outlined, color: colors.positive),
+          title: const Text(
+            'Kategoriler',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text('Gelir ve gider kategorilerini düzenle'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: manageCategories,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Panel(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 8,
+          ),
+          leading: Icon(Icons.tune_rounded, color: colors.accent),
+          title: const Text(
+            'Ayarlar',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text('Tema, animasyonlar ve verilerin'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: settings,
+        ),
+      ),
+    ];
+  }
+
+  Widget _profileStat(String label, String value, IconData icon, Color color) =>
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 23),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  void manageCategories() => sheet(
+    context,
+    StatefulBuilder(
+      builder: (dialogContext, update) => FormShell(
+        title: 'Kategoriler',
+        subtitle:
+            'Adı değiştirince ilişkili kayıtlar ve tekrarlar güncellenir. Silinen kategorinin geçmiş kayıtları korunur.',
+        children: [
+          for (final income in [true, false]) ...[
+            Text(
+              income ? 'Gelir kategorileri' : 'Gider kategorileri',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            for (final name in [...s.categoriesFor(income)])
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(name),
+                trailing: Wrap(
+                  spacing: 0,
+                  children: [
+                    IconButton(
+                      tooltip: '$name düzenle',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () async {
+                        final next = await categoryNameDialog(name);
+                        if (next == null) return;
+                        try {
+                          await s.change(
+                            () => s.renameCategory(income, name, next),
+                          );
+                          update(() {});
+                          if (mounted) setState(() {});
+                        } catch (_) {
+                          toast(
+                            'Kategori adı değiştirilemedi. Adı kontrol et.',
+                          );
+                        }
+                      },
+                    ),
+                    IconButton(
+                      tooltip: '$name sil',
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: financeColors(context).negative,
+                      ),
+                      onPressed: () async {
+                        final ok = await confirm(
+                          dialogContext,
+                          'Kategori silinsin mi?',
+                          '$name yeni kayıtlarda görünmeyecek. Eski işlemler ve tekrarlar kendi kategori adıyla kalacak.',
+                        );
+                        if (!ok) return;
+                        try {
+                          await s.change(() => s.removeCategory(income, name));
+                          update(() {});
+                          if (mounted) setState(() {});
+                        } catch (_) {
+                          toast('Kategori silinemedi.');
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            TextButton.icon(
+              onPressed: () async {
+                final name = await categoryNameDialog();
+                if (name == null) return;
+                try {
+                  await s.change(() => s.addCategory(income, name));
+                  update(() {});
+                  if (mounted) setState(() {});
+                } catch (_) {
+                  toast('Kategori eklenemedi. Adı kontrol et.');
+                }
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Kategori ekle'),
+            ),
+            const SizedBox(height: 22),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Future<String?> categoryNameDialog([String initial = '']) async {
+    var value = initial;
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          initial.isEmpty ? 'Yeni kategori' : 'Kategori adını değiştir',
+        ),
+        content: TextFormField(
+          autofocus: true,
+          maxLength: 40,
+          initialValue: initial,
+          onChanged: (text) => value = text,
+          decoration: const InputDecoration(labelText: 'Kategori adı'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, value),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> exportData({required bool csv}) async {
+    try {
+      final name = csv ? 'birikio-islemler.csv' : 'birikio-yedek.json';
+      final location = await getSaveLocation(suggestedName: name);
+      if (location == null) return;
+      final content = csv ? createCsv(s) : createBackup(s);
+      await XFile.fromData(
+        Uint8List.fromList(utf8.encode(content)),
+        name: name,
+        mimeType: csv ? 'text/csv' : 'application/json',
+      ).saveTo(location.path);
+      toast(csv ? 'CSV dışa aktarıldı.' : 'Yedek kaydedildi.');
+    } catch (_) {
+      toast('Dosya kaydedilemedi.');
+    }
+  }
+
+  Future<void> importData(BuildContext dialogContext) async {
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: [
+          const XTypeGroup(
+            label: 'Birikio JSON',
+            extensions: ['json'],
+            mimeTypes: ['application/json'],
+          ),
+        ],
+      );
+      if (file == null || !file.name.toLowerCase().endsWith('.json')) return;
+      final raw = await file.readAsString();
+      final data = parseBackup(raw);
+      if (!dialogContext.mounted) return;
+      final ok = await confirm(
+        dialogContext,
+        'Yedek geri yüklensin mi?',
+        'Mevcut ${s.entries.length} işlem, ${s.goals.length} hedef ve bütçeler yedekteki ${(data['entries'] as List).length} işlem ve ${(data['goals'] as List).length} hedefle değişecek. Bu işlem mevcut verinin üzerine yazar.',
+      );
+      if (!ok) return;
+      await restoreBackup(s, raw);
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+      toast('Yedek geri yüklendi.');
+    } catch (_) {
+      toast('Yedek açılamadı veya doğrulanamadı. Mevcut veriler korundu.');
+    }
+  }
+
+  Future<void> chooseWidget() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (_) => const WidgetPickerDialog(),
+    );
+    if (selected == null) return;
+    try {
+      await HomeWidget.requestPinWidget(androidName: selected);
+    } catch (_) {
+      toast(
+        'Widget eklenemedi. Ana ekranın widget listesinden deneyebilirsin.',
+      );
+    }
+  }
+
   void settings() => sheet(
     context,
     StatefulBuilder(
@@ -1375,14 +2644,87 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           SizedBox(height: 16),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Bütçe ve fatura bildirimleri'),
+            subtitle: const Text('Limit eşikleri ve yaklaşan manuel ödemeler'),
+            value: s.notificationsEnabled,
+            onChanged: (enabled) async {
+              if (enabled) {
+                try {
+                  final granted = await LocalNotifications.instance
+                      .requestPermission();
+                  if (!granted) {
+                    toast(
+                      'Bildirim izni verilmedi. Uygulama içi uyarılar çalışır.',
+                    );
+                    return;
+                  }
+                } catch (_) {
+                  toast('Bildirim izni alınamadı.');
+                  return;
+                }
+              }
+              if (await mutate(() => s.notificationsEnabled = enabled)) {
+                if (!enabled) await LocalNotifications.instance.cancelAll();
+                if (context.mounted) update(() {});
+              }
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.widgets_outlined),
+            title: const Text('Widget’ta bakiyeyi göster'),
+            subtitle: const Text(
+              'Kapalıyken yalnızca hedef ilerlemesi görünür.',
+            ),
+            value: s.showWidgetBalance,
+            onChanged: (value) async {
+              await mutate(() => s.showWidgetBalance = value);
+              if (context.mounted) update(() {});
+            },
+          ),
+          if (Platform.isAndroid)
+            TextButton.icon(
+              onPressed: chooseWidget,
+              icon: const Icon(Icons.add_to_home_screen_rounded),
+              label: const Text('Beş widget boyutundan birini seç'),
+            ),
+          SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             secondary: Icon(Icons.auto_awesome_outlined),
             title: Text('Görsel animasyonlar'),
-            subtitle: Text('Hareketli hedefler ve banknot efektleri'),
+            subtitle: Text('Hareketli hedefler ve kayıt anı ışık efektleri'),
             value: s.motion,
             onChanged: (v) async {
               await mutate(() => s.motion = v);
               if (context.mounted) update(() {});
             },
+          ),
+          SizedBox(height: 16),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Eyebrow('VERİLERİM'),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => exportData(csv: false),
+                  icon: const Icon(Icons.save_alt_rounded),
+                  label: const Text('JSON yedek oluştur'),
+                ),
+                TextButton.icon(
+                  onPressed: () => importData(context),
+                  icon: const Icon(Icons.restore_rounded),
+                  label: const Text('Yedekten geri yükle'),
+                ),
+                TextButton.icon(
+                  onPressed: () => exportData(csv: true),
+                  icon: const Icon(Icons.table_chart_outlined),
+                  label: const Text('İşlemleri CSV dışa aktar'),
+                ),
+              ],
+            ),
           ),
           SizedBox(height: 16),
           Panel(
@@ -1429,12 +2771,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             label: Text('Tüm verileri sil'),
           ),
           SizedBox(height: 20),
-          Center(
-            child: Text(
-              'Birikio  /  1.0.0',
-              style: TextStyle(fontSize: 11, letterSpacing: 2),
-            ),
-          ),
+          const Center(child: AppVersion()),
         ],
       ),
     ),

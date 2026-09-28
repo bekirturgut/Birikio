@@ -38,27 +38,30 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 
 | Ekran | Neler yapabilirsin? |
 | --- | --- |
-| **Anasayfa** | Sabitlenmiş hedefini, kullanılabilir bakiyeni, aylık gelir–gider toplamlarını ve son 5 kaydı gör. |
-| **Gelir** | Tutar, kaynak, kategori, tarih ve not ekle; kayıtlarını ara, düzenle veya sil. |
-| **Gider** | Harcamalarını kategorilere ayır, not al ve tekrarlayan giderlerini takip et. |
-| **Birikim** | Birden fazla hedef oluştur, simge seç, para ekle veya çek; aktarım geçmişini incele. |
-| **Bütçe** | Her ay için harcama limiti belirle; kullanılan, kalan ve aşılan tutarı gör. |
-| **Analiz** | Günlük, haftalık, aylık veya yıllık özetleri incele; dönem seçmeden önce toplamları gör. |
+| **Anasayfa** | Sabitlenmiş hedefini, bakiyeni, aylık finansal özeti, bütçe puanını ve geciken ödemeleri gör. |
+| **Gelir & Gider** | Tür, kategori, tarih, tutar ve tekrara göre filtrele; özel kategorilerini ve düzenli ödemelerini yönet. |
+| **Cüzdan** | Birikim hedeflerini tarih ve aylık katkıyla planla; genel ve kategori bütçelerini izle. |
+| **Analiz** | Dönem karşılaştırması, günlük ortalama, harcama öne çıkanları ve yeterli veriyle ay sonu tahminini gör. |
+| **Profil** | Kategorileri ve yerel bildirimleri yönet; JSON yedek oluştur/geri yükle ve Türkçe CSV aktar. |
 
 ### Daha az uğraş, daha düzenli takip
 
 - **Tekrarlayan kayıtlar:** günlük, haftalık, aylık veya yıllık gelir ve giderler; başlangıç tarihi ve tekrarı durdurma seçeneği.
+- **Faturalar:** otomatik seçilenler vadede gider olarak yazılır; manuel seçilenler yalnızca ödendi işaretlenince bakiyeyi etkiler. Gerçek banka tahsilatı doğrulanmaz.
+- **Bildirimler:** izin verilirse bütçe kullanım eşikleri ve yaklaşan manuel faturalar için cihaz içi hatırlatmalar planlanır. Teslim zamanı işletim sistemi ve pil kısıtlarına bağlıdır.
+- **Android widget:** 1×1 hedef yüzdesi, 2×1 bakiye, 2×2 hedef, 2×3 bütçe ve 3×3 finansal özet seçenekleri vardır. Ayarlardaki görsel seçim penceresinde boyut ve içerik önizlenir. Bakiye gizlilik tercihiyle kapatılabilir; uygulama verisi değiştiğinde yenilenir.
 - **Esnek formlar:** gelir kaynağı, gider adı, hedef adı ve not isteğe bağlıdır. İsimsiz kayıtlara uygun bir ad atanır.
 - **Geri tuşu:** açık pencereyi kapatır, diğer sekmelerden ana sayfaya döner; ana sayfada uygulamadan çıkmaz.
 - **Hızlı ekleme:** her ekrandaki **+** düğmesinden gelir, gider veya birikim hedefi oluştur.
 - **Başarı görünümü:** hedef tamamlandığında kart yeşile döner; altın kupa, parıltılar ve yeni hedef düğmesi belirir.
 - **Tema ve hareket tercihi:** varsayılan olarak sistem temasını anlık takip etme; isteğe bağlı açık/koyu tema seçimi, animasyonları kapatma ve onaylı veri silme.
+- **Sürüm bilgisi:** uygulama başlığı, açılış ekranı ve ayarlarda kurulu paketin sürümü gösterilir.
 
 ### Hareketli bir deneyim
 
 Birikio açılırken logonun katmanları birleşir, altın para yerine oturur ve uygulama adı belirir. Sayfa geçişlerinde kayma, yakınlaşma, bulanıklık ve ışık efektleri birlikte kullanılır.
 
-Yarış motorunun dönen jantları ve kayan yol çizgileri, diğer hedeflerin kendilerine özgü hareketleri, para ekleme/çekmedeki yeşil–kırmızı banknotlar ve animasyonlu ilerleme göstergeleri hedeflerini görünür kılar. Azaltılmış hareket tercihinde açılış animasyonu atlanır.
+Yarış motorunun dönen jantları ve kayan yol çizgileri, diğer hedeflerin kendilerine özgü hareketleri, para ekleme/çekmedeki yeşil–kırmızı banknotlar, gelir/gider eklemedeki yönlü ışık parçacıkları ve animasyonlu ilerleme göstergeleri hedeflerini görünür kılar. Azaltılmış hareket tercihinde açılış ve kayıt animasyonları atlanır.
 
 ## Kurulum
 
@@ -92,7 +95,9 @@ APK, `build/app/outputs/flutter-apk/app-debug.apk` konumunda oluşur. Bu paket g
 
 ### Cihazında kalır
 
-Uygulama sunucu, kullanıcı hesabı veya internet bağlantısı gerektirmez. Kayıtlar `SharedPreferencesAsync` üzerinden yerel JSON olarak tutulur; Android tarafında DataStore kullanılır. Uygulama içinde analitik veya ağ çağrısı bulunmaz ve Android otomatik yedekleme kapalıdır.
+Uygulama sunucu, kullanıcı hesabı veya internet bağlantısı gerektirmez. Kayıtlar `SharedPreferencesAsync` üzerinden sürümlü yerel JSON olarak tutulur; Android tarafında DataStore kullanılır. Eski sürümsüz kayıtlar açılırken korunur. Uygulama içinde analitik veya ağ çağrısı bulunmaz ve Android otomatik yedekleme kapalıdır.
+
+Profil > Ayarlar > Verilerim bölümünde JSON yedeği cihazına kaydedebilir, geri yükleyebilir veya gelir/gider kayıtlarını CSV olarak aktarabilirsin. Geri yükleme mevcut yerel veriyi yedekteki veriyle değiştirir; önce onay istenir.
 
 Tutarlar **tam sayı kuruş** olarak saklanır. Kaydetme başarısız olursa bellekteki değişiklik geri alınır. Açılışta veriler okunamazsa mevcut kayıtları koruyan bir tekrar deneme ekranı gösterilir.
 
@@ -117,17 +122,21 @@ Aynı dönem iki kez eklenmez; silinmiş otomatik kayıt yeniden oluşturulmaz. 
 
 Bir kaydı düzenlemek yalnızca seçili kaydı değiştirir. Gelecek tekrarın tutarını veya sıklığını değiştirmek için mevcut tekrarı durdurup yeni bir tekrar oluşturabilirsin.
 
-> **Mevcut sınırlar:** dışa aktarma ve cihazlar arası taşıma henüz yoktur. Uygulamayı kaldırmak veya uygulama verilerini temizlemek yerel kayıtları silebilir.
+> **Mevcut sınırlar:** cihazlar arası otomatik eşitleme yoktur. JSON yedeğiyle elle taşıma mümkündür. Uygulamayı kaldırmak veya uygulama verilerini temizlemek yerel kayıtları silebilir.
 
 ## Geliştirme
 
-**Altyapı:** Flutter · Dart · Material 3 · `ChangeNotifier` · `SharedPreferencesAsync` · Flutter yerelleştirme araçları.
+**Altyapı:** Flutter · Dart · Material 3 · `ChangeNotifier` · `SharedPreferencesAsync` · Flutter yerelleştirme araçları · `package_info_plus`.
 
 ```text
 lib/
 ├── main.dart             # Uygulama başlangıcı
 ├── data/
-│   └── store.dart        # Modeller, hesaplar, tekrarlar ve yerel saklama
+│   ├── store.dart        # Modeller, hesaplar, tekrarlar ve yerel saklama
+│   ├── analytics.dart    # Dönem karşılaştırmaları ve bütçe puanı
+│   ├── backup.dart       # JSON yedek ve CSV aktarımı
+│   └── finance_document.dart # Veri şeması ve eski kayıt geçişi
+├── services/             # Bildirimler ve Android ana ekran widget'ları
 └── ui/
     ├── app.dart          # Tema, navigasyon ve ana ekranlar
     ├── forms.dart        # Kayıt, hedef ve aktarım formları
@@ -135,7 +144,9 @@ lib/
     ├── palette.dart      # Temaya uygun finans renkleri
     ├── widgets.dart      # Ortak bileşenler ve görsel animasyonlar
     ├── brand.dart        # Birikio logosu
-    └── launch.dart       # Animasyonlu açılış ve veri yükleme
+    ├── launch.dart       # Animasyonlu açılış ve veri yükleme
+    ├── app_version.dart  # Kurulu uygulama sürümü
+    └── widget_picker.dart # Widget seçim penceresi
 ```
 
 ### Kontroller
@@ -145,7 +156,7 @@ flutter analyze
 flutter test
 ```
 
-Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, yazma hatasında geri alma, tema kontrastı, hedef tamamlama ve açılış akışlarını kapsar.
+Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, veri geçişi, bütçe ve fatura hesapları, tema kontrastı, widget seçimi, hedef tamamlama ve açılış akışlarını kapsar.
 
 ### Görselleri yeniden üretme
 
