@@ -182,6 +182,8 @@ class Goal {
   int target;
   DateTime? targetDate;
   int? monthlyContribution;
+  int? monthlyDueDay;
+  DateTime? monthlyPlanStart;
   Goal({
     required this.id,
     required this.title,
@@ -189,6 +191,8 @@ class Goal {
     required this.target,
     this.targetDate,
     this.monthlyContribution,
+    this.monthlyDueDay,
+    this.monthlyPlanStart,
   });
   Map<String, dynamic> json() => {
     'id': id,
@@ -197,6 +201,8 @@ class Goal {
     'target': target,
     'targetDate': targetDate?.toIso8601String(),
     'monthlyContribution': monthlyContribution,
+    'monthlyDueDay': monthlyDueDay,
+    'monthlyPlanStart': monthlyPlanStart?.toIso8601String(),
   };
   factory Goal.read(Map<String, dynamic> j) => Goal(
     id: j['id'],
@@ -207,6 +213,10 @@ class Goal {
         ? null
         : DateTime.parse(j['targetDate']),
     monthlyContribution: j['monthlyContribution'] as int?,
+    monthlyDueDay: j['monthlyDueDay'] as int?,
+    monthlyPlanStart: j['monthlyPlanStart'] == null
+        ? null
+        : DateTime.parse(j['monthlyPlanStart']),
   );
 }
 
@@ -289,6 +299,7 @@ class FinanceStore extends ChangeNotifier {
   Map<String, Map<String, int>> categoryBudgets = {};
   bool notificationsEnabled = false;
   bool showWidgetBalance = false;
+  DateTime? lastBackupAt;
   List<String> dashboardSections = [...defaultDashboardSections];
   Set<String> sentBudgetAlerts = {};
   List<String> incomeCategories = [...defaultIncomeCategories];
@@ -448,6 +459,7 @@ class FinanceStore extends ChangeNotifier {
     'categoryBudgets': categoryBudgets,
     'notificationsEnabled': notificationsEnabled,
     'showWidgetBalance': showWidgetBalance,
+    'lastBackupAt': lastBackupAt?.toIso8601String(),
     'dashboardSections': dashboardSections,
     'sentBudgetAlerts': sentBudgetAlerts.toList(),
     'incomeCategories': incomeCategories,
@@ -483,6 +495,9 @@ class FinanceStore extends ChangeNotifier {
         document['notificationsEnabled'] as bool? ?? false;
     final nextShowWidgetBalance =
         document['showWidgetBalance'] as bool? ?? false;
+    final nextLastBackupAt = document['lastBackupAt'] == null
+        ? null
+        : DateTime.parse(document['lastBackupAt'] as String);
     final rawDashboardSections = document['dashboardSections'];
     final nextDashboardSections = rawDashboardSections == null
         ? [...defaultDashboardSections]
@@ -538,6 +553,7 @@ class FinanceStore extends ChangeNotifier {
     categoryBudgets = nextCategoryBudgets;
     notificationsEnabled = nextNotificationsEnabled;
     showWidgetBalance = nextShowWidgetBalance;
+    lastBackupAt = nextLastBackupAt;
     dashboardSections = nextDashboardSections;
     sentBudgetAlerts = nextSentBudgetAlerts;
     incomeCategories = nextIncomeCategories;

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 /// Disk format version. The original, unversioned document is version 0.
-const financeSchemaVersion = 10;
+const financeSchemaVersion = 11;
 
 Map<String, dynamic> decodeFinanceDocument(String raw) {
   final decoded = jsonDecode(raw);

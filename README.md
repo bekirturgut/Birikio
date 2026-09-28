@@ -55,6 +55,9 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 - **Hızlı ekleme:** her ekrandaki **+** düğmesinden gelir, gider veya birikim hedefi oluştur.
 - **Düzenlenebilir ana ekran:** başlıktaki düzenleme simgesinden hedef, aylık özet, ayrı bakiye, ayrı gelir/gider, son hareketler ve geciken ödeme kartlarını seçip sırala. Düzen cihazda saklanır. Varsayılan görünümde bakiye, gelir ve gider aylık özet kartında birlikte yer alır.
 - **Finans yönetimi puanı:** son üç tamamlanmış ay ve içinde bulunulan ayın kayıtlarını; gelir/gider dengesi, bütçe limitleri, birikime yatırma ve çekme, düzenli faturalar, gelir düzeni, aylık gidişat, bakiye tamponu ve harcama dağılımı üzerinden değerlendirir. Detay ekranı her alanın puanını ve kayda dayalı yorumları gösterir. Verisi olmayan alanlar ağırlık hesabından çıkarılır; otomatik ödeme kayıtları banka tahsilatının kanıtı değildir.
+- **Aylık birikim sözü:** her hedefe isteğe bağlı aylık tutar ve ayın son gününü ekleyebilirsin. Vade geçince eksik tutar hedef kartında ve Profil uyarısında görünür; zamanında ve gecikmeli yatırımlar finans puanında ayrı değerlendirilir. Eski hedefler kendiliğinden gecikmiş sayılmaz.
+- **Profil ve yedek:** Profil, en önemli güncel uyarıyı ve son yedek tarihini gösterir. JSON yedeği güncel veri şemasını, aylık planları, ekran tercihlerini ve kurulu uygulamanın sürümünü taşır.
+- **Android'de dosya kaydetme:** JSON yedeği ve CSV, sistemin belge oluşturma ekranında seçtiğin konuma yazılır. İptal edilen işlem son yedek tarihini değiştirmez.
 - **Başarı görünümü:** hedef tamamlandığında kart yeşile döner; altın kupa, parıltılar ve yeni hedef düğmesi belirir.
 - **Tema ve hareket tercihi:** varsayılan olarak sistem temasını anlık takip etme; isteğe bağlı açık/koyu tema seçimi, animasyonları kapatma ve onaylı veri silme.
 - **Sürüm bilgisi:** uygulama başlığı, açılış ekranı ve ayarlarda kurulu paketin sürümü gösterilir.
@@ -137,6 +140,7 @@ lib/
 │   ├── store.dart        # Modeller, hesaplar, tekrarlar ve yerel saklama
 │   ├── analytics.dart    # Dönem karşılaştırmaları
 │   ├── financial_health.dart # Finans yönetimi puanı ve yorumlar
+│   ├── goal_plan.dart   # Aylık hedef vadeleri ve eksik tutar
 │   ├── backup.dart       # JSON yedek ve CSV aktarımı
 │   └── finance_document.dart # Veri şeması ve eski kayıt geçişi
 ├── services/             # Bildirimler ve Android ana ekran widget'ları

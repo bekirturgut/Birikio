@@ -10,8 +10,11 @@ import 'package:flutter/services.dart';
 import '../data/store.dart';
 import '../data/backup.dart';
 import '../data/financial_health.dart';
+import '../data/goal_plan.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/local_notifications.dart';
 import '../services/home_summary_widget.dart';
+import '../services/document_export.dart';
 import 'widgets.dart';
 import 'palette.dart';
 import 'forms.dart';
@@ -1166,7 +1169,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 6),
             Text(
-              health.observations.first,
+              health.attention ?? health.observations.first,
               style: TextStyle(color: muted, fontSize: 11, height: 1.35),
             ),
           ] else
@@ -1306,7 +1309,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         const SizedBox(height: 8),
         Text(
-          'Gelir–gider %25 · Birikim %20 · Faturalar %15 · Bütçe %15 · Gelir düzeni %10 · Aylık gidişat %7 · Bakiye %5 · Harcama dağılımı %3. Veri olmayan alanlar puana katılmaz; kalan ağırlıklar yeniden dağıtılır.',
+          'Gelir–gider %25 · Birikim hareketleri %20 · Aylık birikim sözü %15 · Faturalar %15 · Bütçe %15 · Gelir düzeni %10 · Aylık gidişat %7 · Bakiye %5 · Harcama dağılımı %3. Veri olmayan alanlar puana katılmaz; kalan ağırlıklar yeniden dağıtılır.',
           style: TextStyle(
             fontSize: 11,
             height: 1.5,
@@ -1327,6 +1330,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final muted = completed ? colors.completedMuted : colors.goalMuted;
     final monthlyNeeded = requiredMonthlySaving(goal, saved, DateTime.now());
     final projected = projectedGoalDate(goal, saved, DateTime.now());
+    final monthlyStatus = monthlyGoalStatus(goal, s.transfers, DateTime.now());
     return AnimatedContainer(
       key: ValueKey('goal-card-${goal.id}'),
       duration: Duration(
@@ -1558,6 +1562,35 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     Text(
                       'Aylık plan: ${money(goal.monthlyContribution!)}',
                       style: TextStyle(color: text, fontSize: 11),
+                    ),
+                  if (monthlyStatus != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      monthlyStatus.duePassed && monthlyStatus.missing > 0
+                          ? 'Bu ay ${money(monthlyStatus.missing)} eksik yatırdın.'
+                          : monthlyStatus.late
+                          ? 'Bu ayki birikim sözünü gecikmeli tamamladın.'
+                          : monthlyStatus.missing == 0
+                          ? 'Bu ayki birikim sözünü tamamladın ✓'
+                          : '${monthlyStatus.dueDate.day} ${months[monthlyStatus.dueDate.month - 1]} gününe kadar ${money(monthlyStatus.missing)} daha yatır.',
+                      style: TextStyle(
+                        color:
+                            monthlyStatus.duePassed &&
+                                (monthlyStatus.missing > 0 ||
+                                    monthlyStatus.late)
+                            ? colors.negative
+                            : accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (!completed &&
+                      goal.monthlyDueDay != null &&
+                      monthlyStatus == null)
+                    Text(
+                      'Aylık takip sonraki uygun ayda başlayacak.',
+                      style: TextStyle(color: muted, fontSize: 11),
                     ),
                   if (!completed && monthlyNeeded != null)
                     Text(
@@ -2693,6 +2726,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   List<Widget> profilePage() {
     final colors = financeColors(context);
     final scheme = Theme.of(context).colorScheme;
+    final health = financialHealthReport(s, DateTime.now());
     return [
       Container(
         padding: const EdgeInsets.all(24),
@@ -2711,34 +2745,50 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: .20),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(Icons.person_rounded, size: 34, color: colors.accent),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: colors.accent.withValues(alpha: .20),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(
+                    Icons.person_rounded,
+                    size: 29,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Senin alanın',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.7,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Finans yolculuğun, senin kontrolünde.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'Senin alanın',
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.7,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              'Finans yolculuğun bu cihazda, senin kontrolünde.',
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.5,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -2790,6 +2840,43 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         ],
       ),
+      heading('Bu ay dikkat et'),
+      Panel(
+        color: health.attention == null
+            ? null
+            : colors.negative.withValues(alpha: .08),
+        child: InkWell(
+          onTap: health.score == null ? null : () => showHealthDetails(health),
+          child: Row(
+            children: [
+              Icon(
+                health.attention == null
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.tips_and_updates_rounded,
+                color: health.attention == null
+                    ? colors.positive
+                    : colors.negative,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  health.attention ??
+                      (health.score == null
+                          ? 'Henüz yeterli kayıt yok; öneriler burada görünecek.'
+                          : 'Şimdilik dikkat gerektiren bir durum görünmüyor.'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (health.score != null)
+                const Icon(Icons.chevron_right_rounded, size: 18),
+            ],
+          ),
+        ),
+      ),
       heading('Tercihlerin'),
       Panel(
         padding: EdgeInsets.zero,
@@ -2824,6 +2911,55 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           subtitle: const Text('Tema, animasyonlar ve verilerin'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: settings,
+        ),
+      ),
+      heading('Verilerim ve gizlilik'),
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.shield_outlined, color: colors.positive),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Kayıtların cihazında tutulur',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              s.lastBackupAt == null
+                  ? 'Henüz yedek oluşturulmadı.'
+                  : 'Son yedek: ${dateLabel(s.lastBackupAt!.toLocal())}',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Yedek dosyasını seçtiğin konuma kaydedersin.',
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: () => exportData(csv: false),
+                  icon: const Icon(Icons.save_alt_rounded, size: 18),
+                  label: const Text('Yedek oluştur'),
+                ),
+                TextButton.icon(
+                  onPressed: () => importData(context),
+                  icon: const Icon(Icons.restore_rounded, size: 18),
+                  label: const Text('Geri yükle'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     ];
@@ -2973,21 +3109,42 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   Future<void> exportData({required bool csv}) async {
     try {
       final name = csv ? 'birikio-islemler.csv' : 'birikio-yedek.json';
-      final location = await getSaveLocation(suggestedName: name);
-      if (location == null) return;
-      final content = csv ? createCsv(s) : createBackup(s);
-      await XFile.fromData(
-        Uint8List.fromList(utf8.encode(content)),
+      final backupAt = DateTime.now();
+      String? appVersion;
+      if (!csv) {
+        try {
+          appVersion = (await PackageInfo.fromPlatform()).version;
+        } catch (_) {
+          // Version metadata is optional; the user's backup must still work.
+        }
+      }
+      final content = csv
+          ? createCsv(s)
+          : createBackup(s, createdAt: backupAt, appVersion: appVersion);
+      final saved = await saveDocument(
         name: name,
         mimeType: csv ? 'text/csv' : 'application/json',
-      ).saveTo(location.path);
+        bytes: Uint8List.fromList(utf8.encode(content)),
+      );
+      if (!saved) return;
+      if (!csv) {
+        try {
+          await s.change(() => s.lastBackupAt = backupAt);
+        } catch (_) {
+          toast('Yedek kaydedildi; son yedek tarihi güncellenemedi.');
+          return;
+        }
+      }
       toast(csv ? 'CSV dışa aktarıldı.' : 'Yedek kaydedildi.');
     } catch (_) {
       toast('Dosya kaydedilemedi.');
     }
   }
 
-  Future<void> importData(BuildContext dialogContext) async {
+  Future<void> importData(
+    BuildContext dialogContext, {
+    bool closeSheet = false,
+  }) async {
     try {
       final file = await openFile(
         acceptedTypeGroups: [
@@ -3009,7 +3166,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       );
       if (!ok) return;
       await restoreBackup(s, raw);
-      if (dialogContext.mounted) Navigator.pop(dialogContext);
+      if (closeSheet && dialogContext.mounted) Navigator.pop(dialogContext);
       toast('Yedek geri yüklendi.');
     } catch (_) {
       toast('Yedek açılamadı veya doğrulanamadı. Mevcut veriler korundu.');
@@ -3139,7 +3296,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   label: const Text('JSON yedek oluştur'),
                 ),
                 TextButton.icon(
-                  onPressed: () => importData(context),
+                  onPressed: () => importData(context, closeSheet: true),
                   icon: const Icon(Icons.restore_rounded),
                   label: const Text('Yedekten geri yükle'),
                 ),

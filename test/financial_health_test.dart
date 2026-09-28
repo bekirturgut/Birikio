@@ -172,4 +172,46 @@ void main() {
       expect(factor(report, 'Fatura düzeni').score, 0);
     },
   );
+
+  test(
+    'monthly savings promise changes score and highlights the missing amount',
+    () {
+      final data = store();
+      data.entries.add(entry('income', 100000, true, DateTime(2026, 9, 1)));
+      data.goals.add(
+        Goal(
+          id: 'goal',
+          title: 'Birikim',
+          icon: 'Birikim',
+          target: 500000,
+          monthlyContribution: 20000,
+          monthlyDueDay: 15,
+          monthlyPlanStart: DateTime(2026, 9, 1),
+        ),
+      );
+      data.transfers.add(
+        Transfer(
+          id: 'early',
+          goal: 'goal',
+          amount: 5000,
+          date: DateTime(2026, 9, 5),
+        ),
+      );
+      final missing = financialHealthReport(data, now);
+      expect(missing.attention, contains('150,00 ₺ eksik'));
+      expect(factor(missing, 'Aylık birikim sözü').score, 25);
+      data.transfers.add(
+        Transfer(
+          id: 'late',
+          goal: 'goal',
+          amount: 15000,
+          date: DateTime(2026, 9, 20),
+        ),
+      );
+      final caughtUp = financialHealthReport(data, now);
+      expect(caughtUp.attention, contains('vade gününden sonra'));
+      expect(factor(caughtUp, 'Aylık birikim sözü').score, greaterThan(25));
+      expect(factor(caughtUp, 'Aylık birikim sözü').score, lessThan(100));
+    },
+  );
 }

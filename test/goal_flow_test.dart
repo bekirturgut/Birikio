@@ -35,7 +35,7 @@ void main() {
     await tester.ensureVisible(find.text('Hedefimi oluştur'));
     await tester.tap(find.text('Hedefimi oluştur'));
     await tester.pumpAndSettle();
-    expect(store.goals.single.title, 'Motor hedefim');
+    expect(store.goals.single.title, 'Birikim hedefim');
     await tester.tap(find.text('Para ekle'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Tutar'), '2000');

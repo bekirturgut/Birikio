@@ -5,14 +5,20 @@ import 'store.dart';
 
 const backupFormat = 'birikio-backup';
 
-String createBackup(FinanceStore store, {DateTime? createdAt}) =>
-    const JsonEncoder.withIndent('  ').convert({
-      'format': backupFormat,
-      'schemaVersion': financeSchemaVersion,
-      'createdAt': (createdAt ?? DateTime.now()).toUtc().toIso8601String(),
-      'appVersion': '1.0.0',
-      'data': store.json(),
-    });
+String createBackup(
+  FinanceStore store, {
+  DateTime? createdAt,
+  String? appVersion,
+}) {
+  final timestamp = (createdAt ?? DateTime.now()).toUtc().toIso8601String();
+  return const JsonEncoder.withIndent('  ').convert({
+    'format': backupFormat,
+    'schemaVersion': financeSchemaVersion,
+    'createdAt': timestamp,
+    if (appVersion case final String version) 'appVersion': version,
+    'data': {...store.json(), 'lastBackupAt': timestamp},
+  });
+}
 
 Map<String, dynamic> parseBackup(String raw) {
   final root = jsonDecode(raw);
@@ -75,6 +81,17 @@ Map<String, dynamic> parseBackup(String raw) {
     if (item['target'] is! int || item['target'] <= 0) {
       throw const FormatException('Geçersiz hedef tutarı.');
     }
+    final amount = item['monthlyContribution'];
+    final dueDay = item['monthlyDueDay'];
+    final planStart = item['monthlyPlanStart'];
+    if ((amount != null && (amount is! int || amount <= 0)) ||
+        (dueDay != null &&
+            (dueDay is! int || dueDay < 1 || dueDay > 31 || amount == null)) ||
+        (planStart != null &&
+            DateTime.tryParse(planStart.toString()) == null) ||
+        ((dueDay == null) != (planStart == null))) {
+      throw const FormatException('Geçersiz aylık birikim planı.');
+    }
   }
   for (final item in migrated['transfers'] as List) {
     if (item['amount'] is! int ||
@@ -95,6 +112,10 @@ Map<String, dynamic> parseBackup(String raw) {
       )) {
     throw const FormatException('Geçersiz kategori bütçesi.');
   }
+  if (migrated['lastBackupAt'] != null &&
+      DateTime.tryParse(migrated['lastBackupAt'].toString()) == null) {
+    throw const FormatException('Geçersiz yedek zamanı.');
+  }
   return migrated;
 }
 
@@ -102,7 +123,12 @@ Future<void> restoreBackup(FinanceStore store, String raw) async {
   final data = parseBackup(raw);
   final candidate = FinanceStore(read: () async => null, write: (_) async {});
   candidate.restore(data);
-  await store.change(() => store.restore(data));
+  await store.change(() {
+    store.restore(data);
+    store.lastBackupAt ??= DateTime.parse(
+      (jsonDecode(raw) as Map)['createdAt'],
+    );
+  });
 }
 
 String createCsv(FinanceStore store) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:birikio/data/backup.dart';
+import 'package:birikio/data/finance_document.dart';
 import 'package:birikio/data/store.dart';
 
 void main() {
@@ -68,4 +69,69 @@ void main() {
     expect(csv.startsWith('\uFEFF'), isTrue);
     expect(csv, contains('125,50;"Ev";"A;B";"""not"""'));
   });
+
+  test(
+    'current backup includes monthly plan, preferences, timestamp and build version',
+    () async {
+      final source = FinanceStore(read: () async => null, write: (_) async {});
+      source.dashboardSections = ['summary', 'goal'];
+      source.goals.add(
+        Goal(
+          id: 'goal',
+          title: 'Ev',
+          icon: 'Ev',
+          target: 100000,
+          monthlyContribution: 10000,
+          monthlyDueDay: 20,
+          monthlyPlanStart: DateTime(2026, 9, 1),
+        ),
+      );
+      final backup = createBackup(
+        source,
+        createdAt: DateTime.utc(2026, 9, 28),
+        appVersion: '2.3.4',
+      );
+      final root = jsonDecode(backup) as Map<String, dynamic>;
+      expect(root['schemaVersion'], financeSchemaVersion);
+      expect(root['appVersion'], '2.3.4');
+      final target = FinanceStore(read: () async => null, write: (_) async {});
+      await restoreBackup(target, backup);
+      expect(target.dashboardSections, ['summary', 'goal']);
+      expect(target.goals.single.monthlyDueDay, 20);
+      expect(target.lastBackupAt, DateTime.utc(2026, 9, 28));
+      final data = root['data'] as Map<String, dynamic>;
+      (data['goals'] as List).first['monthlyDueDay'] = 40;
+      expect(() => parseBackup(jsonEncode(root)), throwsFormatException);
+    },
+  );
+
+  test(
+    'previous schema backup opens without creating overdue goal plans',
+    () async {
+      final source = FinanceStore(read: () async => null, write: (_) async {});
+      source.goals.add(
+        Goal(
+          id: 'old',
+          title: 'Ev',
+          icon: 'Ev',
+          target: 100000,
+          monthlyContribution: 10000,
+        ),
+      );
+      final root =
+          jsonDecode(createBackup(source, createdAt: DateTime.utc(2026, 9, 1)))
+              as Map<String, dynamic>;
+      root['schemaVersion'] = 10;
+      final data = root['data'] as Map<String, dynamic>;
+      data['schemaVersion'] = 10;
+      data.remove('lastBackupAt');
+      final oldGoal = (data['goals'] as List).single as Map<String, dynamic>;
+      oldGoal.remove('monthlyDueDay');
+      oldGoal.remove('monthlyPlanStart');
+      final target = FinanceStore(read: () async => null, write: (_) async {});
+      await restoreBackup(target, jsonEncode(root));
+      expect(target.goals.single.monthlyDueDay, isNull);
+      expect(target.lastBackupAt, DateTime.utc(2026, 9, 1));
+    },
+  );
 }

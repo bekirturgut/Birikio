@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'goal_plan.dart';
 import 'store.dart';
 
 class HealthFactor {
@@ -16,6 +17,7 @@ class FinancialHealthReport {
   final String dataQuality;
   final List<HealthFactor> factors;
   final List<String> observations;
+  final String? attention;
   final String? topCategory;
   final int topCategoryShare;
 
@@ -24,6 +26,7 @@ class FinancialHealthReport {
     required this.dataQuality,
     required this.factors,
     required this.observations,
+    required this.attention,
     required this.topCategory,
     required this.topCategoryShare,
   });
@@ -76,6 +79,11 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
   final withdrawalCount = recentTransfers.where((t) => t.amount < 0).length;
   final factors = <HealthFactor>[];
   final observations = <String>[];
+  final alerts = <(int, String)>[];
+  void alert(int priority, String message) {
+    observations.add(message);
+    alerts.add((priority, message));
+  }
 
   if (income > 0 || expense > 0) {
     final ratio = income == 0 ? 2.0 : expense / income;
@@ -90,7 +98,7 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
       ),
     );
     if (expense > income) {
-      observations.add('İncelenen dönemin giderleri gelirlerini aştı.');
+      alert(70, 'İncelenen dönemin giderleri gelirlerini aştı.');
     }
   }
 
@@ -128,7 +136,7 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
         '${budgetRatios.length} limitin ortalama %${(average * 100).round()} kullanıldı.',
       ),
     );
-    if (highest > 1) observations.add('En az bir bütçe limitin aşıldı.');
+    if (highest > 1) alert(65, 'En az bir bütçe limitin aşıldı.');
   }
 
   if (store.goals.isNotEmpty || recentTransfers.isNotEmpty) {
@@ -151,11 +159,12 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
       ),
     );
     if (withdrawalCount >= 2) {
-      observations.add(
+      alert(
+        60,
         'Birikiminden incelenen dönemde $withdrawalCount kez para çektin; hedefe ayrılan para sık kullanılıyor.',
       );
     } else if (withdrawals > deposits && withdrawals > 0) {
-      observations.add('Birikiminden yatırdığından daha fazla para çektin.');
+      alert(55, 'Birikiminden yatırdığından daha fazla para çektin.');
     } else if (deposits > 0 && withdrawals == 0) {
       observations.add('Birikimine para ekledin ve bu dönemde çekim yapmadın.');
     }
@@ -192,11 +201,57 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
       ),
     );
     if (overdue > 0) {
-      observations.add(
+      alert(
+        100,
         '$overdue düzenli ödemenin vadesi geçti ve ödenmiş görünmüyor.',
       );
     } else if (late > 0) {
-      observations.add('$late düzenli ödeme vadesinden sonra kaydedildi.');
+      alert(50, '$late düzenli ödeme vadesinden sonra kaydedildi.');
+    }
+  }
+
+  final planScores = <double>[];
+  var currentMissing = 0;
+  var latePlans = 0;
+  for (final goal in store.goals) {
+    for (var offset = -3; offset <= 0; offset++) {
+      final status = monthlyGoalStatus(
+        goal,
+        store.transfers,
+        _month(now, offset),
+        now: now,
+      );
+      if (status == null || !status.duePassed) continue;
+      planScores.add(
+        status.onTimeSatisfied
+            ? 1
+            : ((status.onTimeDeposited / status.required).clamp(0, 1) * .7 +
+                  (status.netDeposited / status.required).clamp(0, 1) * .3),
+      );
+      if (offset == 0) currentMissing += status.missing;
+      if (status.late) latePlans++;
+    }
+  }
+  if (planScores.isNotEmpty) {
+    final average = planScores.reduce((a, b) => a + b) / planScores.length;
+    factors.add(
+      HealthFactor(
+        'Aylık birikim sözü',
+        _score(average * 100),
+        15,
+        '${planScores.length} vadesi gelen aylık planda ortalama %${(average * 100).round()} birikim yapıldı.',
+      ),
+    );
+    if (currentMissing > 0) {
+      alert(
+        90,
+        'Bu ay birikim planına ${money(currentMissing)} eksik yatırdın.',
+      );
+    } else if (latePlans > 0) {
+      alert(
+        45,
+        '$latePlans aylık birikim sözü vade gününden sonra tamamlandı.',
+      );
     }
   }
 
@@ -256,7 +311,7 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
       ),
     );
     if (latestRatio > previousRatio + .15) {
-      observations.add('Giderlerinin gelirine oranı önceki aya göre yükseldi.');
+      alert(40, 'Giderlerinin gelirine oranı önceki aya göre yükseldi.');
     }
   }
 
@@ -305,7 +360,10 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
   final totalWeight = _sum(factors.map((f) => f.weight));
   final score =
       totalWeight == 0 ||
-          (recentEntries.isEmpty && recentTransfers.isEmpty && dueCount == 0)
+          (recentEntries.isEmpty &&
+              recentTransfers.isEmpty &&
+              dueCount == 0 &&
+              planScores.isEmpty)
       ? null
       : _score(
           factors.fold<int>(0, (sum, f) => sum + f.score * f.weight) /
@@ -331,6 +389,9 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
     dataQuality: dataQuality,
     factors: factors,
     observations: observations,
+    attention: alerts.isEmpty
+        ? null
+        : (alerts..sort((a, b) => b.$1.compareTo(a.$1))).first.$2,
     topCategory: top?.key,
     topCategoryShare: topShare,
   );

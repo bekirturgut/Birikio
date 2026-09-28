@@ -420,7 +420,7 @@ class _GoalFormState extends State<GoalForm> {
         ? ''
         : (widget.goal!.target / 100).toStringAsFixed(2).replaceAll('.', ','),
   );
-  late String icon = widget.goal?.icon ?? 'Motor';
+  late String icon = widget.goal?.icon ?? 'Birikim';
   late DateTime? targetDate = widget.goal?.targetDate;
   late final monthly = TextEditingController(
     text: widget.goal?.monthlyContribution == null
@@ -429,6 +429,7 @@ class _GoalFormState extends State<GoalForm> {
               .toStringAsFixed(2)
               .replaceAll('.', ','),
   );
+  late int? monthlyDueDay = widget.goal?.monthlyDueDay;
   bool saving = false;
   String? error;
   @override
@@ -521,13 +522,169 @@ class _GoalFormState extends State<GoalForm> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
             labelText: 'Planlanan aylık birikim',
-            helperText: 'İsteğe bağlı · tahmini bitiş için kullanılır',
+            helperText: 'Tahmini bitiş ve aylık takip için kullanılır',
             suffixText: '₺',
           ),
           validator: (value) =>
               value == null || value.trim().isEmpty || parseMoney(value) != null
               ? null
               : 'Geçerli bir tutar gir.',
+        ),
+        const SizedBox(height: 12),
+        FormField<int>(
+          initialValue: monthlyDueDay,
+          validator: (_) => monthlyDueDay != null && monthly.text.trim().isEmpty
+              ? 'Önce aylık birikim tutarını gir.'
+              : null,
+          builder: (field) {
+            final now = DateTime.now();
+            final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+            final colors = financeColors(context);
+            final scheme = Theme.of(context).colorScheme;
+            final effectiveDay = monthlyDueDay?.clamp(1, daysInMonth);
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: colors.goalBackground),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: colors.accent.withValues(alpha: .22)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ayın kaçıncı günü?',
+                    style: TextStyle(
+                      color: colors.goalText,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bu ay $daysInMonth gün · kısa aylarda son gün geçerlidir',
+                    style: TextStyle(color: colors.goalMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 14),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      field.didChange(null);
+                      setState(() => monthlyDueDay = null);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color: monthlyDueDay == null
+                            ? colors.accent.withValues(alpha: .2)
+                            : scheme.surface.withValues(alpha: .45),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: monthlyDueDay == null
+                              ? colors.accent.withValues(alpha: .65)
+                              : colors.accent.withValues(alpha: .12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            monthlyDueDay == null
+                                ? Icons.check_circle_rounded
+                                : Icons.event_busy_rounded,
+                            size: 18,
+                            color: colors.accent,
+                          ),
+                          const SizedBox(width: 9),
+                          Text(
+                            'Gün sınırı yok',
+                            style: TextStyle(
+                              color: colors.goalText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          mainAxisSpacing: 6,
+                          crossAxisSpacing: 6,
+                          childAspectRatio: 1,
+                        ),
+                    itemCount: daysInMonth,
+                    itemBuilder: (context, index) {
+                      final dayNumber = index + 1;
+                      final selected = effectiveDay == dayNumber;
+                      return Semantics(
+                        label: 'Ayın $dayNumber. günü',
+                        selected: selected,
+                        button: true,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            field.didChange(dayNumber);
+                            setState(() => monthlyDueDay = dayNumber);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? colors.accent
+                                  : scheme.surface.withValues(alpha: .55),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selected
+                                    ? colors.accent
+                                    : colors.accent.withValues(alpha: .13),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$dayNumber',
+                              style: TextStyle(
+                                color: selected
+                                    ? colors.onAccent
+                                    : colors.goalText,
+                                fontWeight: selected
+                                    ? FontWeight.w900
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (monthlyDueDay != null &&
+                      monthlyDueDay! > daysInMonth) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Kayıtlı ${monthlyDueDay!}. gün bu ayın son günü olan $daysInMonth olarak uygulanır.',
+                      style: TextStyle(color: colors.goalMuted, fontSize: 12),
+                    ),
+                  ],
+                  if (field.hasError) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      field.errorText!,
+                      style: TextStyle(color: scheme.error, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
         if (error != null)
           Text(
@@ -554,6 +711,18 @@ class _GoalFormState extends State<GoalForm> {
                         monthlyContribution: monthly.text.trim().isEmpty
                             ? null
                             : parseMoney(monthly.text),
+                        monthlyDueDay: monthly.text.trim().isEmpty
+                            ? null
+                            : monthlyDueDay,
+                        monthlyPlanStart:
+                            monthly.text.trim().isEmpty || monthlyDueDay == null
+                            ? null
+                            : widget.goal?.monthlyDueDay == monthlyDueDay &&
+                                  widget.goal?.monthlyContribution ==
+                                      parseMoney(monthly.text)
+                            ? widget.goal?.monthlyPlanStart ??
+                                  day(DateTime.now())
+                            : day(DateTime.now()),
                       );
                       if (widget.goal == null) {
                         widget.store.goals.add(g);

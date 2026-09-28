@@ -32,6 +32,7 @@ Bu dosya, 28 Eylül 2026 tarihli repo inceleme sohbeti ve ardından verilen kara
 
 - [x] Ayarlara **Verilerim** bölümü ekle: JSON yedek oluştur, dosyadan geri yükle, CSV dışa aktar.
 - [x] Yedek dosyasına `schemaVersion`, oluşturulma zamanı, uygulama sürümü ve tüm finans verilerini ekle.
+- [x] Android'de JSON ve CSV dışa aktarmayı sistemin belge oluşturma ekranına bağla; gerçek emülatörde dosya ve son yedek tarihini doğrula.
 - [x] Geri yüklemede dosya türünü, sürümünü, alanları, kimlikleri ve tutarları doğrula; bozuk/uyumsuz dosyada mevcut veriye dokunma.
 - [x] Geri yüklemeden önce kullanıcıya hangi verinin değişeceğini göster; başarılı işlemden sonra hesaplamaları ve ekranları yenile.
 - [x] Eski sürümlü veriyi geçiş katmanından geçir; aynı yedeğin tekrar yüklenmesinde çift kayıt oluşmasını engelle.
@@ -62,7 +63,8 @@ Bu dosya, 28 Eylül 2026 tarihli repo inceleme sohbeti ve ardından verilen kara
 - [x] Hedef kartında biriken, kalan, hedef tarihi ve hedefe yetişmek için yaklaşık aylık gereken tutarı göster.
 - [x] Geçmiş tarih ve tamamlanmış hedef durumlarını ele al; para ekleme/çekme sonrası hesabı güncelle.
 - [x] Tahmini tamamlanma tarihini yalnızca planlanan aylık katkı varsa göster; varsayımı açık yaz.
-- [x] Yeni alanları sürümlü veri geçişine dahil et. Dışa aktarılabilir yedekleme henüz sonraki aşamada.
+- [x] Yeni alanları sürümlü veri geçişine ve güncel JSON yedeğine dahil et.
+- [x] İsteğe bağlı ayın son günüyle aylık birikim sözü ekle; vade geçince eksik tutarı ve gecikmeli tamamlamayı göster. Eski hedeflere geriye dönük vade yükleme.
 
 **Bitti sayılması:** Tarih vermeyen mevcut hedefler çalışır; tarih veren hedefin hesapları anlaşılır ve tutarlıdır.
 
@@ -111,11 +113,11 @@ Bu dosya, 28 Eylül 2026 tarihli repo inceleme sohbeti ve ardından verilen kara
 ## 9. Ana ekran finansal sağlık özeti ve bütçe yönetimi puanı
 
 - [x] Bu ayın gelir, gider, hedefe ayrılan net birikim ve birikim oranını tek kartta göster.
-- [x] 0–100 arası **bütçe yönetimi puanı** için açıklanabilir bir formül belirle; limit yoksa puan yerine yönlendirme göster.
+- [x] 0–100 arası **finans yönetimi puanı** için gelir/gider, birikim hareketleri, aylık birikim sözü, faturalar, bütçe, gelir düzeni, dönem gidişatı, bakiye ve kategori dağılımını açıklanabilir biçimde değerlendir. Veri olmayan alanları puana katma.
 - [x] Puanın hangi verilerden hesaplandığını ekranda açıkla.
 - [x] Ay başında, limit değişince ve harcama silinince puanı yeniden hesapla.
 
-**Bitti sayılması:** Kullanıcı puanın neden yükselip düştüğünü anlayabilir; bütçe yokken keyfi puan gösterilmez.
+**Bitti sayılması:** Kullanıcı puanın neden yükselip düştüğünü ve hangi alanların veri eksikliği nedeniyle kullanılmadığını anlayabilir.
 
 ## 10. Bütçe ve ödeme bildirimleri
 

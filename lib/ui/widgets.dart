@@ -9,6 +9,7 @@ const coral = Color(0xFFFF7D8C);
 const lavender = Color(0xFFB9A3FF);
 const ink = Color(0xFF0C101B);
 const goalIcons = <String, IconData>{
+  'Birikim': Icons.savings_rounded,
   'Motor': Icons.two_wheeler_rounded,
   'Araba': Icons.directions_car_rounded,
   'Ev': Icons.home_rounded,
@@ -498,7 +499,7 @@ class _MoneyMomentPainter extends CustomPainter {
       old.t != t || old.color != color || old.income != income;
 }
 
-/// The fairing, low handlebars, raised tail and tucked rider form a sport bike.
+/// A compact side profile with a long fairing and a raised race tail.
 class RacingMotor extends StatelessWidget {
   final double phase;
   final double width;
@@ -518,212 +519,164 @@ class RacingMotorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.scale(size.width / 164, size.height / 112);
-    final paint = Paint()..isAntiAlias = true;
-    Path polygon(List<Offset> points) {
+    final fill = Paint()..isAntiAlias = true;
+    final stroke = Paint()
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    void panel(List<Offset> points, Color color) {
       final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (final p in points.skip(1)) {
-        path.lineTo(p.dx, p.dy);
+      for (final point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
       }
-      return path..close();
+      canvas.drawPath(path..close(), fill..color = color);
     }
 
-    void shape(List<Offset> points, Color color) => canvas.drawPath(
-      polygon(points),
-      paint
-        ..color = color
-        ..style = PaintingStyle.fill,
-    );
+    void line(Offset start, Offset end, Color color, double width) =>
+        canvas.drawLine(
+          start,
+          end,
+          stroke
+            ..color = color
+            ..strokeWidth = width,
+        );
+
+    const ink = Color(0xFF171829);
+    const metal = Color(0xFF8C95B3);
+    const violet = Color(0xFF8668E8);
+    const highlight = Color(0xFFE7DEFF);
+    const wheelCenters = [Offset(34, 80), Offset(132, 80)];
+
     canvas.drawOval(
-      const Rect.fromLTWH(13, 91, 139, 8),
-      paint
-        ..color = lavender.withValues(alpha: .28)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      const Rect.fromLTWH(15, 99, 137, 5),
+      fill..color = lavender.withValues(alpha: .22),
     );
-    paint.maskFilter = null;
-    // Tires, machined rims, rotating spokes and brake discs.
-    for (final center in [const Offset(34, 78), const Offset(131, 78)]) {
-      canvas.drawCircle(center, 21, paint..color = const Color(0xFF111626));
+    for (final center in wheelCenters) {
+      canvas.drawCircle(center, 22, fill..color = ink);
       canvas.drawCircle(
         center,
-        17,
-        paint
-          ..color = const Color(0xFFB9A3FF)
-          ..style = PaintingStyle.stroke
+        19,
+        stroke
+          ..color = const Color(0xFF4E4A67)
           ..strokeWidth = 2.5,
       );
       canvas.drawCircle(
         center,
-        11,
-        paint
-          ..color = const Color(0xFF554C76)
-          ..strokeWidth = 1,
+        16,
+        stroke
+          ..color = const Color(0xFFCED0E1)
+          ..strokeWidth = 1.5,
       );
-      for (var i = 0; i < 6; i++) {
-        final angle = i * math.pi / 3 + phase * math.pi * 40;
-        canvas.drawLine(
+      canvas.drawCircle(center, 9, fill..color = const Color(0xFF37364D));
+      for (var i = 0; i < 5; i++) {
+        final angle = i * math.pi * 2 / 5 + phase * math.pi * 24;
+        line(
           center,
           center + Offset(math.cos(angle) * 15, math.sin(angle) * 15),
-          paint
-            ..color = const Color(0xFF9D8ECA)
-            ..strokeWidth = 1.6,
+          metal,
+          1.8,
         );
       }
-      canvas.drawCircle(
-        center,
-        3,
-        paint
-          ..style = PaintingStyle.fill
-          ..color = const Color(0xFFE5DDFF),
-      );
+      canvas.drawCircle(center, 3.5, fill..color = highlight);
     }
-    // Swingarm, front fork and underbody.
-    canvas.drawLine(
-      const Offset(34, 78),
-      const Offset(79, 69),
-      paint
-        ..color = const Color(0xFF8B80AB)
-        ..strokeWidth = 5
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      const Offset(113, 41),
-      const Offset(131, 78),
-      paint
-        ..color = const Color(0xFFE2CE9B)
-        ..strokeWidth = 3,
-    );
-    shape(const [
-      Offset(54, 56),
-      Offset(111, 55),
-      Offset(99, 83),
-      Offset(75, 84),
-    ], const Color(0xFF615682));
-    // Raised race tail and sculpted fuel tank.
-    shape(const [
-      Offset(15, 40),
-      Offset(27, 36),
-      Offset(55, 45),
-      Offset(66, 52),
-      Offset(42, 52),
-    ], const Color(0xFFCABBFF));
-    shape(const [
-      Offset(45, 43),
-      Offset(64, 45),
-      Offset(70, 49),
-      Offset(50, 50),
-    ], const Color(0xFF151928));
-    shape(const [
-      Offset(61, 49),
-      Offset(71, 37),
-      Offset(91, 35),
-      Offset(108, 45),
-      Offset(92, 63),
-    ], const Color(0xFFDDD3FF));
-    // Aerodynamic nose, windshield and full racing fairing.
-    shape(const [
-      Offset(105, 31),
-      Offset(119, 35),
-      Offset(130, 47),
-      Offset(114, 47),
-    ], const Color(0xFF789DAF));
-    shape(const [
-      Offset(103, 43),
-      Offset(128, 44),
-      Offset(142, 53),
-      Offset(126, 60),
-      Offset(110, 72),
-      Offset(98, 86),
-      Offset(73, 83),
-      Offset(80, 64),
-    ], const Color(0xFFB6A0FF));
-    shape(const [
-      Offset(87, 65),
-      Offset(125, 51),
-      Offset(110, 66),
-      Offset(98, 81),
-      Offset(78, 78),
-    ], const Color(0xFF8B72DB));
-    shape(const [
-      Offset(104, 51),
-      Offset(132, 50),
-      Offset(119, 55),
-      Offset(99, 59),
-    ], const Color(0xFFF0E9FF));
-    shape(const [
-      Offset(99, 64),
-      Offset(111, 59),
-      Offset(107, 65),
-      Offset(96, 70),
-    ], const Color(0xFF29223F));
-    shape(const [
-      Offset(94, 71),
-      Offset(104, 67),
-      Offset(100, 73),
-      Offset(90, 77),
-    ], const Color(0xFF29223F));
-    // Headlight and front fender.
-    canvas.drawLine(
-      const Offset(130, 48),
-      const Offset(138, 52),
-      paint
-        ..color = mint
-        ..strokeWidth = 2,
-    );
+
+    // Exposed frame, swingarm, fork and low exhaust keep the silhouette legible.
+    line(const Offset(34, 80), const Offset(75, 68), metal, 5);
+    line(const Offset(75, 68), const Offset(92, 83), metal, 4);
+    line(const Offset(116, 39), const Offset(132, 80), highlight, 4);
+    line(const Offset(121, 43), const Offset(136, 78), violet, 3);
+    panel(const [
+      Offset(64, 78),
+      Offset(96, 78),
+      Offset(91, 89),
+      Offset(69, 89),
+    ], const Color(0xFF50536D));
+    panel(const [
+      Offset(54, 79),
+      Offset(71, 82),
+      Offset(91, 86),
+      Offset(82, 91),
+      Offset(58, 88),
+    ], metal);
+
+    // High, pointed tail and a single continuous, angular sport fairing.
+    panel(const [
+      Offset(11, 39),
+      Offset(33, 36),
+      Offset(58, 48),
+      Offset(65, 57),
+      Offset(38, 53),
+      Offset(25, 47),
+    ], highlight);
+    panel(const [
+      Offset(31, 40),
+      Offset(52, 46),
+      Offset(68, 47),
+      Offset(62, 53),
+      Offset(40, 49),
+    ], ink);
+    panel(const [
+      Offset(55, 50),
+      Offset(73, 36),
+      Offset(96, 36),
+      Offset(109, 47),
+      Offset(92, 58),
+      Offset(69, 57),
+    ], const Color(0xFFBBA6FF));
+    panel(const [
+      Offset(73, 55),
+      Offset(106, 42),
+      Offset(131, 43),
+      Offset(151, 55),
+      Offset(131, 61),
+      Offset(117, 73),
+      Offset(105, 87),
+      Offset(76, 86),
+      Offset(57, 74),
+      Offset(61, 61),
+    ], violet);
+    panel(const [
+      Offset(91, 57),
+      Offset(130, 45),
+      Offset(146, 54),
+      Offset(119, 59),
+      Offset(103, 68),
+      Offset(85, 67),
+    ], highlight);
+    panel(const [
+      Offset(71, 67),
+      Offset(103, 68),
+      Offset(124, 59),
+      Offset(109, 82),
+      Offset(84, 84),
+      Offset(62, 74),
+    ], const Color(0xFF4B3B82));
+    panel(const [
+      Offset(106, 64),
+      Offset(120, 60),
+      Offset(107, 79),
+      Offset(95, 80),
+    ], const Color(0xFF27233E));
+    line(const Offset(75, 61), const Offset(112, 50), highlight, 2);
+    panel(const [
+      Offset(106, 38),
+      Offset(114, 29),
+      Offset(124, 31),
+      Offset(134, 42),
+    ], const Color(0xFF71839E));
+    line(const Offset(107, 37), const Offset(100, 34), metal, 2);
+    line(const Offset(137, 51), const Offset(146, 53), mint, 2.5);
     canvas.drawArc(
-      const Rect.fromLTWH(108, 54, 44, 40),
-      math.pi * 1.05,
-      math.pi * .72,
+      const Rect.fromLTWH(111, 57, 41, 39),
+      math.pi * 1.12,
+      math.pi * .7,
       false,
-      paint
-        ..style = PaintingStyle.stroke
-        ..color = lavender
-        ..strokeWidth = 4,
+      stroke
+        ..color = violet
+        ..strokeWidth = 3.5,
     );
-    paint.style = PaintingStyle.fill;
-    // Tucked rider and helmet: deliberately low, forward racing posture.
-    shape(const [
-      Offset(47, 41),
-      Offset(56, 26),
-      Offset(76, 22),
-      Offset(94, 31),
-      Offset(84, 38),
-      Offset(66, 36),
-      Offset(62, 46),
-    ], const Color(0xFF8B85AE));
-    shape(const [
-      Offset(62, 44),
-      Offset(79, 52),
-      Offset(65, 67),
-      Offset(78, 71),
-      Offset(76, 76),
-      Offset(54, 70),
-      Offset(62, 55),
-      Offset(49, 48),
-    ], const Color(0xFFDDD2F5));
-    canvas.drawLine(
-      const Offset(80, 33),
-      const Offset(98, 46),
-      paint
-        ..color = const Color(0xFFD8D0F0)
-        ..strokeWidth = 6
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      const Offset(98, 46),
-      const Offset(111, 43),
-      paint..strokeWidth = 4,
-    );
-    canvas.drawOval(
-      const Rect.fromLTWH(84, 15, 24, 22),
-      paint..color = const Color(0xFFE3DAFF),
-    );
-    shape(const [
-      Offset(98, 20),
-      Offset(107, 22),
-      Offset(110, 28),
-      Offset(98, 29),
-      Offset(94, 25),
-    ], const Color(0xFF233947));
     canvas.restore();
   }
 
