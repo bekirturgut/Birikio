@@ -37,7 +37,8 @@ void main() {
       final store = FinanceStore(read: () async => null, write: (_) async {});
       await tester.pumpWidget(BirikioApp(store: store));
       await tester.pump(const Duration(milliseconds: 800));
-      expect(find.byType(RacingMotor), findsOneWidget);
+      expect(find.byType(RacingMotor), findsNothing);
+      expect(find.byIcon(Icons.savings_rounded), findsOneWidget);
       for (final label in ['Gelir & Gider', 'Cüzdan', 'Analiz', 'Anasayfa']) {
         await tester.tap(find.text(label).last);
         await tester.pump();

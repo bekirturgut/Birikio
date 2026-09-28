@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import '../data/store.dart';
-import '../data/analytics.dart';
 import '../data/backup.dart';
+import '../data/financial_health.dart';
 import '../services/local_notifications.dart';
 import '../services/home_summary_widget.dart';
 import 'widgets.dart';
@@ -475,20 +475,28 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                                   ),
                                 ),
                                 if (page == 0)
-                                  Padding(
-                                    padding: EdgeInsets.only(bottom: 6),
-                                    child: Icon(
-                                      Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? Icons.nightlight_round
-                                          : Icons.wb_sunny_rounded,
-                                      color:
-                                          Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? financeColors(context).accent
-                                          : financeColors(context).gold,
-                                      size: 30,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Icons.nightlight_round
+                                            : Icons.wb_sunny_rounded,
+                                        color:
+                                            Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? financeColors(context).accent
+                                            : financeColors(context).gold,
+                                        size: 25,
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Ana ekranı düzenle',
+                                        onPressed: editDashboard,
+                                        icon: const Icon(
+                                          Icons.dashboard_customize_rounded,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                               ],
                             ),
@@ -616,6 +624,130 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
+  void editDashboard() => sheet(
+    context,
+    StatefulBuilder(
+      builder: (context, update) {
+        const labels = <String, (String, IconData)>{
+          'goal': ('Birikim hedefi', Icons.savings_rounded),
+          'summary': ('Bu ayın özeti', Icons.auto_graph_rounded),
+          'balance': (
+            'Ayrı bakiye kartı',
+            Icons.account_balance_wallet_rounded,
+          ),
+          'cashflow': ('Ayrı gelir / gider kartları', Icons.swap_vert_rounded),
+          'activity': ('Son hareketler', Icons.receipt_long_rounded),
+          'overdue': (
+            'Gecikmiş ödemeler',
+            Icons.notification_important_rounded,
+          ),
+        };
+        final visible = s.dashboardSections;
+        final ordered = [
+          ...visible,
+          ...FinanceStore.availableDashboardSections.where(
+            (id) => !visible.contains(id),
+          ),
+        ];
+        return FormShell(
+          title: 'Ana ekranı düzenle',
+          subtitle:
+              'Kartları açıp kapat, oklarla sıralarını değiştir. Seçimlerin otomatik kaydedilir.',
+          children: [
+            for (final id in ordered)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Panel(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        labels[id]!.$2,
+                        color: financeColors(context).accent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          labels[id]!.$1,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (visible.contains(id)) ...[
+                        IconButton(
+                          tooltip: '${labels[id]!.$1} yukarı',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: visible.indexOf(id) == 0
+                              ? null
+                              : () async {
+                                  if (await mutate(() {
+                                        final index = s.dashboardSections
+                                            .indexOf(id);
+                                        s.dashboardSections.removeAt(index);
+                                        s.dashboardSections.insert(
+                                          index - 1,
+                                          id,
+                                        );
+                                      }) &&
+                                      context.mounted) {
+                                    update(() {});
+                                  }
+                                },
+                          icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                        ),
+                        IconButton(
+                          tooltip: '${labels[id]!.$1} aşağı',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: visible.indexOf(id) == visible.length - 1
+                              ? null
+                              : () async {
+                                  if (await mutate(() {
+                                        final index = s.dashboardSections
+                                            .indexOf(id);
+                                        s.dashboardSections.removeAt(index);
+                                        s.dashboardSections.insert(
+                                          index + 1,
+                                          id,
+                                        );
+                                      }) &&
+                                      context.mounted) {
+                                    update(() {});
+                                  }
+                                },
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        ),
+                      ],
+                      Switch.adaptive(
+                        value: visible.contains(id),
+                        onChanged: (enabled) async {
+                          if (await mutate(() {
+                                if (enabled) {
+                                  s.dashboardSections.add(id);
+                                } else {
+                                  s.dashboardSections.remove(id);
+                                }
+                              }) &&
+                              context.mounted) {
+                            update(() {});
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+
   List<Widget> dashboard() {
     final now = DateTime.now();
     final overdueBills = s.rules
@@ -639,14 +771,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final transferred = s.transfers
         .where((t) => t.date.year == now.year && t.date.month == now.month)
         .fold<int>(0, (sum, t) => sum + t.amount);
-    final score = budgetManagementScore(s, now);
-    return [
-      if (s.featured != null)
-        goalCard(s.featured!, featured: true)
-      else
-        emptyGoal(),
-      SizedBox(height: 16),
-      Panel(
+    final health = financialHealthReport(s, now);
+    final sections = <String, Widget>{
+      'goal': s.featured != null
+          ? goalCard(s.featured!, featured: true)
+          : emptyGoal(),
+      'balance': Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -686,59 +816,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ],
         ),
       ),
-      SizedBox(height: 12),
-      Row(
+      'cashflow': Row(
         children: [
           Expanded(child: statCard(true, incoming)),
           SizedBox(width: 12),
           Expanded(child: statCard(false, outgoing)),
         ],
       ),
-      const SizedBox(height: 12),
-      Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Eyebrow('BU AYIN FİNANSAL ÖZETİ'),
-            const SizedBox(height: 12),
-            Text('Gelir ${money(incoming)} · Gider ${money(outgoing)}'),
-            const SizedBox(height: 5),
-            Text('Hedeflere net aktarılan ${money(transferred)}'),
-            const SizedBox(height: 5),
-            Text(
-              incoming > 0
-                  ? 'Hedeflere ayrılan / gelir: %${(transferred / incoming * 100).round()}'
-                  : 'Birikim oranı için bu ay gelir kaydı gerekiyor.',
-            ),
-            const SizedBox(height: 14),
-            Text(
-              score == null
-                  ? 'Bütçe puanı için genel veya kategori limiti belirle.'
-                  : 'Bütçe yönetimi puanı: $score / 100',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            if (score != null) ...[
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: score / 100,
-                minHeight: 7,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                'Genel ve kategori limitlerinin kullanım oranı eşit ağırlıkla alınır. Her %2 kullanım puanı 1 azaltır; puan 0–100 aralığında kalır.',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      if (overdueBills.isNotEmpty) ...[
-        const SizedBox(height: 14),
-        Panel(
+      'summary': financialSummary(incoming, outgoing, transferred, health),
+      if (overdueBills.isNotEmpty)
+        'overdue': Panel(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
@@ -757,21 +844,42 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             },
           ),
         ),
-      ],
-      heading('Son hareketler', action: 'Tümünü gör →', onTap: allEntries),
-      if (s.entries.isEmpty)
-        EmptyState(
-          title: 'İlk adım, ilk kayıt.',
-          subtitle:
-              'Gelirini ve giderini ekle.\nFinansal hikâyen burada şekillensin.',
-          action: 'İlk kaydımı ekle',
-          onTap: addMenu,
-          icon: Icons.receipt_long_rounded,
-        )
-      else
+      'activity': Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          heading('Son hareketler', action: 'Tümünü gör →', onTap: allEntries),
+          if (s.entries.isEmpty)
+            EmptyState(
+              title: 'İlk adım, ilk kayıt.',
+              subtitle:
+                  'Gelirini ve giderini ekle.\nFinansal hikâyen burada şekillensin.',
+              action: 'İlk kaydımı ekle',
+              onTap: addMenu,
+              icon: Icons.receipt_long_rounded,
+            )
+          else
+            Panel(
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: Column(children: s.sorted.take(5).map(entryTile).toList()),
+            ),
+        ],
+      ),
+    };
+    return [
+      for (final id in s.dashboardSections)
+        if (sections[id] case final widget?) ...[
+          widget,
+          const SizedBox(height: 14),
+        ],
+      if (s.dashboardSections.isEmpty)
         Panel(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: Column(children: s.sorted.take(5).map(entryTile).toList()),
+          child: Center(
+            child: TextButton.icon(
+              onPressed: editDashboard,
+              icon: const Icon(Icons.dashboard_customize_rounded),
+              label: const Text('Ana ekranına kart ekle'),
+            ),
+          ),
         ),
       SizedBox(height: 22),
       Center(
@@ -842,55 +950,372 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   );
   Widget emptyGoal() {
     final colors = financeColors(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 140),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: LinearGradient(colors: colors.goalBackground),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: colors.accent.withValues(alpha: .16),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(Icons.savings_rounded, color: colors.accent, size: 29),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Eyebrow('BİRİKİM HEDEFİ', color: colors.accent),
+                const SizedBox(height: 5),
+                Text(
+                  'Bir hedefle başla',
+                  style: TextStyle(
+                    color: colors.goalText,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Küçük adımlar birikime dönüşür.',
+                  style: TextStyle(color: colors.goalMuted, fontSize: 11),
+                ),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: addGoal,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text(
+                      'Hedef oluştur  →',
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget financialSummary(
+    int incoming,
+    int outgoing,
+    int transferred,
+    FinancialHealthReport health,
+  ) {
+    final colors = financeColors(context);
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final savingsRate = incoming > 0
+        ? (transferred / incoming * 100).round()
+        : null;
     return AnimatedContainer(
       duration: Duration(
         milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 420,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(colors: colors.goalBackground),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors.dark
+              ? [const Color(0xFF1F2C3D), const Color(0xFF1C2035)]
+              : [const Color(0xFFEAF8F3), const Color(0xFFF1ECFA)],
+        ),
       ),
-      padding: EdgeInsets.all(22),
+      padding: const EdgeInsets.all(19),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Eyebrow('SIRADAKİ BÜYÜK HAYALİN', color: colors.accent),
-          GoalScene(
-            icon: 'Motor',
-            motion: s.motion && !MediaQuery.disableAnimationsOf(context),
-            height: 100,
+          Row(
+            children: [
+              Eyebrow('BU AYIN ÖZETİ', color: colors.accent),
+              const Spacer(),
+              Icon(Icons.auto_graph_rounded, color: colors.accent, size: 22),
+            ],
           ),
-          Text(
-            'Hayaline yön ver.',
-            style: TextStyle(
-              color: colors.goalText,
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 15),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: colors.positive.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Eyebrow('KULLANILABİLİR BAKİYE', color: colors.positive),
+                const SizedBox(height: 5),
+                Amount(s.balance, size: 26),
+                const SizedBox(height: 3),
+                Text(
+                  '${money(s.savings)} birikimlerinde ayrıldı',
+                  style: TextStyle(color: muted, fontSize: 10),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'O motor, o yolculuk, o ilk ev…\nBir hedef koy, birlikte adım adım ilerleyelim.',
-            style: TextStyle(
-              color: colors.goalMuted,
-              fontSize: 12,
-              height: 1.6,
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: summaryMetric('GELİR', money(incoming), colors.positive),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: summaryMetric('GİDER', money(outgoing), colors.negative),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            decoration: BoxDecoration(
+              color: colors.accent.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.savings_outlined, color: colors.accent, size: 19),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hedeflere net aktarım',
+                        style: TextStyle(color: muted, fontSize: 12),
+                      ),
+                      if (savingsRate != null)
+                        Text(
+                          'Gelirin %$savingsRate kadarı',
+                          style: TextStyle(color: muted, fontSize: 10),
+                        ),
+                    ],
+                  ),
+                ),
+                Text(
+                  money(transferred),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 16),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.accent,
-              foregroundColor: colors.onAccent,
-            ),
-            onPressed: () => addGoal(),
-            icon: Icon(Icons.add_rounded, size: 18),
-            label: Text('İlk hedefimi oluştur'),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Finans yönetimi puanı',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Text(
+                health.score == null
+                    ? 'Veri bekleniyor'
+                    : '${health.score} / 100',
+                style: TextStyle(
+                  color: health.score == null ? muted : colors.accent,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: LinearProgressIndicator(
+              value: (health.score ?? 0) / 100,
+              minHeight: 7,
+              backgroundColor: colors.accent.withValues(alpha: .13),
+              valueColor: AlwaysStoppedAnimation(colors.accent),
+            ),
+          ),
+          const SizedBox(height: 9),
+          if (health.score != null) ...[
+            Text(
+              health.dataQuality,
+              style: TextStyle(
+                color: colors.accent,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              health.observations.first,
+              style: TextStyle(color: muted, fontSize: 11, height: 1.35),
+            ),
+          ] else
+            Text(
+              'Gelir, gider veya birikim kaydı ekledikçe değerlendirme oluşur.',
+              style: TextStyle(color: muted, fontSize: 11),
+            ),
+          if (health.score != null) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: () => showHealthDetails(health),
+              icon: const Icon(Icons.insights_rounded, size: 16),
+              label: const Text('Puanı ve yorumları incele'),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  Widget summaryMetric(String label, String value, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(17),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            letterSpacing: 1.3,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  void showHealthDetails(FinancialHealthReport report) => sheet(
+    context,
+    FormShell(
+      title: 'Paranın genel resmi',
+      subtitle:
+          'Son üç tamamlanmış ay ve bu ayın kayıtlarından hesaplanan ${report.score}/100 puan · ${report.dataQuality.toLowerCase()}. Otomatik fatura kayıtları gerçek banka tahsilatını doğrulamaz.',
+      children: [
+        Eyebrow('ÖNE ÇIKANLAR', color: financeColors(context).accent),
+        const SizedBox(height: 10),
+        for (final observation in report.observations)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Panel(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 17,
+                    color: financeColors(context).accent,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      observation,
+                      style: const TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Eyebrow(
+          'PUANI OLUŞTURAN ALANLAR',
+          color: financeColors(context).accent,
+        ),
+        const SizedBox(height: 10),
+        for (final factor in report.factors)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Panel(
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          factor.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${factor.score}/100',
+                        style: TextStyle(
+                          color: financeColors(context).accent,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  LinearProgressIndicator(
+                    value: factor.score / 100,
+                    minHeight: 5,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    factor.explanation,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          'Gelir–gider %25 · Birikim %20 · Faturalar %15 · Bütçe %15 · Gelir düzeni %10 · Aylık gidişat %7 · Bakiye %5 · Harcama dağılımı %3. Veri olmayan alanlar puana katılmaz; kalan ağırlıklar yeniden dağıtılır.',
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.5,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget goalCard(Goal goal, {bool featured = false}) {
     final saved = s.saved(goal),

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:birikio/data/analytics.dart';
+import 'package:birikio/data/financial_health.dart';
 import 'package:birikio/data/store.dart';
 
 void main() {
@@ -75,26 +76,43 @@ void main() {
     expect(result.projectedMonthlyExpense, isNull);
   });
 
-  test('budget score recomputes when spending or limits change', () {
+  test('budget factor responds to spending and limits', () {
     final store = FinanceStore(read: () async => null, write: (_) async {});
     final month = DateTime(2026, 9);
-    expect(budgetManagementScore(store, month), isNull);
+    expect(financialHealthReport(store, month).score, isNull);
     store.budgets[store.budgetKey(month)] = 10000;
-    expect(budgetManagementScore(store, month), 100);
+    final initial = financialHealthReport(store, month);
+    expect(initial.factors.single.title, 'Bütçe sınırları');
     store.entries.add(
       Entry(
         id: 'a',
         title: 'Gider',
-        amount: 5000,
+        amount: 9000,
         income: false,
         date: month,
         category: 'Market',
       ),
     );
-    expect(budgetManagementScore(store, month), 75);
+    final withExpense = financialHealthReport(store, month);
+    expect(
+      withExpense.factors.firstWhere((f) => f.title == 'Bütçe sınırları').score,
+      lessThan(initial.factors.single.score),
+    );
     store.categoryBudgets[store.budgetKey(month)] = {'Market': 5000};
-    expect(budgetManagementScore(store, month), 63);
+    expect(
+      financialHealthReport(
+        store,
+        month,
+      ).factors.firstWhere((f) => f.title == 'Bütçe sınırları').explanation,
+      contains('2 limit'),
+    );
     store.entries.clear();
-    expect(budgetManagementScore(store, month), 100);
+    expect(
+      financialHealthReport(
+        store,
+        month,
+      ).factors.firstWhere((f) => f.title == 'Bütçe sınırları').score,
+      initial.factors.single.score,
+    );
   });
 }

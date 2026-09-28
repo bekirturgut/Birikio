@@ -256,6 +256,20 @@ class Transfer {
 }
 
 class FinanceStore extends ChangeNotifier {
+  static const defaultDashboardSections = <String>[
+    'goal',
+    'summary',
+    'activity',
+    'overdue',
+  ];
+  static const availableDashboardSections = <String>[
+    'goal',
+    'summary',
+    'balance',
+    'cashflow',
+    'activity',
+    'overdue',
+  ];
   // Keep the original key so the Birikio rename preserves all existing records.
   static const storageKey = 'pusula.local.v1';
   final Future<String?> Function() read;
@@ -275,6 +289,7 @@ class FinanceStore extends ChangeNotifier {
   Map<String, Map<String, int>> categoryBudgets = {};
   bool notificationsEnabled = false;
   bool showWidgetBalance = false;
+  List<String> dashboardSections = [...defaultDashboardSections];
   Set<String> sentBudgetAlerts = {};
   List<String> incomeCategories = [...defaultIncomeCategories];
   List<String> expenseCategories = [...defaultExpenseCategories];
@@ -433,6 +448,7 @@ class FinanceStore extends ChangeNotifier {
     'categoryBudgets': categoryBudgets,
     'notificationsEnabled': notificationsEnabled,
     'showWidgetBalance': showWidgetBalance,
+    'dashboardSections': dashboardSections,
     'sentBudgetAlerts': sentBudgetAlerts.toList(),
     'incomeCategories': incomeCategories,
     'expenseCategories': expenseCategories,
@@ -467,6 +483,12 @@ class FinanceStore extends ChangeNotifier {
         document['notificationsEnabled'] as bool? ?? false;
     final nextShowWidgetBalance =
         document['showWidgetBalance'] as bool? ?? false;
+    final rawDashboardSections = document['dashboardSections'];
+    final nextDashboardSections = rawDashboardSections == null
+        ? [...defaultDashboardSections]
+        : List<String>.from(
+            rawDashboardSections as List,
+          ).toSet().where(availableDashboardSections.contains).toList();
     final nextSentBudgetAlerts = Set<String>.from(
       document['sentBudgetAlerts'] as List? ?? const <String>[],
     );
@@ -516,6 +538,7 @@ class FinanceStore extends ChangeNotifier {
     categoryBudgets = nextCategoryBudgets;
     notificationsEnabled = nextNotificationsEnabled;
     showWidgetBalance = nextShowWidgetBalance;
+    dashboardSections = nextDashboardSections;
     sentBudgetAlerts = nextSentBudgetAlerts;
     incomeCategories = nextIncomeCategories;
     expenseCategories = nextExpenseCategories;

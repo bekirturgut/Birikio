@@ -20,31 +20,6 @@ class PeriodInsights {
   });
 }
 
-int? budgetManagementScore(FinanceStore store, DateTime month) {
-  final key = store.budgetKey(month);
-  final ratios = <double>[];
-  final general = store.budgets[key] ?? 0;
-  if (general > 0) {
-    final spent = store.entries
-        .where(
-          (e) =>
-              !e.income &&
-              e.date.year == month.year &&
-              e.date.month == month.month,
-        )
-        .fold<int>(0, (sum, e) => sum + e.amount);
-    ratios.add(spent / general);
-  }
-  for (final limit in (store.categoryBudgets[key] ?? {}).entries) {
-    if (limit.value > 0) {
-      ratios.add(store.categorySpent(month, limit.key) / limit.value);
-    }
-  }
-  if (ratios.isEmpty) return null;
-  final average = ratios.reduce((a, b) => a + b) / ratios.length;
-  return (100 - average * 50).round().clamp(0, 100);
-}
-
 PeriodInsights calculateInsights(
   FinanceStore store,
   DateTime start,

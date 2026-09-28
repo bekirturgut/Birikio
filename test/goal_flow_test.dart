@@ -26,7 +26,7 @@ void main() {
     );
     await tester.pumpWidget(BirikioApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('İlk hedefimi oluştur'));
+    await tester.tap(find.text('Hedef oluştur  →'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Hedef tutar'),
@@ -55,9 +55,16 @@ void main() {
     await tester.ensureVisible(find.text('Maaş kaydı'));
     await tester.drag(find.byType(ListView).first, const Offset(0, -180));
     await tester.pumpAndSettle();
-    tester.widget<ListTile>(find.ancestor(
-      of: find.text('Maaş kaydı'), matching: find.byType(ListTile),
-    ).first).onTap!();
+    tester
+        .widget<ListTile>(
+          find
+              .ancestor(
+                of: find.text('Maaş kaydı'),
+                matching: find.byType(ListTile),
+              )
+              .first,
+        )
+        .onTap!();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kaydı düzenle'));
     await tester.pumpAndSettle();
