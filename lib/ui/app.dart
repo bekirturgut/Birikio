@@ -23,6 +23,7 @@ import 'brand.dart';
 import 'launch.dart';
 import 'widget_picker.dart';
 import 'app_version.dart';
+import 'orbit_chart.dart';
 
 class BirikioApp extends StatelessWidget {
   final FinanceStore store;
@@ -126,6 +127,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   FinanceStore get s => widget.store;
   int page = 0;
+  int pageDirection = 1;
   String query = '';
   int entryFilter = 0; // 0: all, 1: income, 2: expense
   int walletFilter = 0; // 0: all, 1: savings, 2: budget
@@ -256,8 +258,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
   void navigate(int i) {
+    if (i == page) return;
     HapticFeedback.selectionClick();
     setState(() {
+      pageDirection = i > page ? 1 : -1;
       page = i;
       query = '';
     });
@@ -439,12 +443,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
-                      duration: Duration(milliseconds: reduced ? 0 : 720),
+                      duration: Duration(milliseconds: reduced ? 0 : 680),
                       reverseDuration: Duration(
-                        milliseconds: reduced ? 0 : 380,
+                        milliseconds: reduced ? 0 : 560,
                       ),
-                      transitionBuilder: (child, a) =>
-                          CinematicPageTransition(animation: a, child: child),
+                      transitionBuilder: (child, a) => CinematicPageTransition(
+                        animation: a,
+                        entering: child.key == ValueKey(page),
+                        direction: pageDirection,
+                        child: child,
+                      ),
                       child: KeyedSubtree(
                         key: ValueKey(page),
                         child: ListView(
@@ -505,8 +513,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                             ),
                             SizedBox(height: 22),
                             if (page == 0) ...dashboard(),
-                            if (page == 1) ...entryPage(),
-                            if (page == 2) ...walletPage(),
+                            if (page == 1)
+                              _tabbedPage(entryPage(), entryFilter, 'entry'),
+                            if (page == 2)
+                              _tabbedPage(walletPage(), walletFilter, 'wallet'),
                             if (page == 3) AnalysisPage(store: s),
                             if (page == 4) ...profilePage(),
                           ],
@@ -626,6 +636,25 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
     );
   }
+
+  Widget _tabbedPage(List<Widget> sections, int selected, String scope) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...sections.take(2),
+          AnimatedSwitcher(
+            duration: Duration(milliseconds: s.motion ? 420 : 0),
+            reverseDuration: Duration(milliseconds: s.motion ? 250 : 0),
+            transitionBuilder: (child, animation) =>
+                BlurTabTransition(animation: animation, child: child),
+            child: Column(
+              key: ValueKey('$scope-$selected'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: sections.skip(2).toList(),
+            ),
+          ),
+        ],
+      );
 
   void editDashboard() => sheet(
     context,
@@ -2644,6 +2673,29 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     ];
   }
 
+  List<ChartSlice> goalDistributionSlices() {
+    final funded = s.goals.where((goal) => s.saved(goal) > 0).toList()
+      ..sort((a, b) => s.saved(b).compareTo(s.saved(a)));
+    const colors = [
+      Color(0xFFB9A3FF),
+      Color(0xFF70E5BC),
+      Color(0xFFFFD780),
+      Color(0xFF78B9FF),
+      Color(0xFFFF7D8C),
+      Color(0xFFDA9EFB),
+    ];
+    return [
+      for (var i = 0; i < funded.length && i < 5; i++)
+        ChartSlice(funded[i].title, s.saved(funded[i]), colors[i]),
+      if (funded.length > 5)
+        ChartSlice(
+          'Diğer hedefler',
+          funded.skip(5).fold(0, (sum, goal) => sum + s.saved(goal)),
+          colors[5],
+        ),
+    ];
+  }
+
   List<Widget> goalPage() => [
     Panel(
       child: Column(
@@ -2660,6 +2712,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ],
       ),
     ),
+    if (s.goals.where((goal) => s.saved(goal) > 0).length > 1) ...[
+      const SizedBox(height: 16),
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Eyebrow('BİRİKİM DAĞILIMI'),
+            const SizedBox(height: 7),
+            const Text(
+              'Hayallerine ayırdığın pay',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 13),
+            OrbitChart(
+              centerLabel: 'Hedef payı',
+              slices: goalDistributionSlices(),
+            ),
+          ],
+        ),
+      ),
+    ],
     heading('Hedeflerin', action: '+ Yeni hedef', onTap: () => addGoal()),
     if (s.goals.isEmpty)
       emptyGoal()

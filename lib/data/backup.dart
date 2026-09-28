@@ -54,7 +54,7 @@ Map<String, dynamic> parseBackup(String raw) {
     }
   }
 
-  for (final key in ['entries', 'rules', 'goals', 'transfers']) {
+  for (final key in ['entries', 'rules', 'goals', 'transfers', 'annualPlans']) {
     uniqueIds(key);
   }
   for (final item in migrated['entries'] as List) {
@@ -98,6 +98,25 @@ Map<String, dynamic> parseBackup(String raw) {
         item['amount'] == 0 ||
         DateTime.tryParse(item['date']?.toString() ?? '') == null) {
       throw const FormatException('Geçersiz birikim aktarımı.');
+    }
+  }
+  for (final item in migrated['annualPlans'] as List) {
+    if (item['title'] is! String ||
+        (item['title'] as String).trim().isEmpty ||
+        item['category'] is! String ||
+        (item['category'] as String).trim().isEmpty ||
+        item['amount'] is! int ||
+        item['amount'] <= 0 ||
+        item['month'] is! int ||
+        item['month'] < 1 ||
+        item['month'] > 12 ||
+        item['dueDay'] is! int ||
+        item['dueDay'] < 1 ||
+        item['dueDay'] > 31 ||
+        item['startYear'] is! int ||
+        item['startYear'] < 2000 ||
+        item['startYear'] > 9999) {
+      throw const FormatException('Geçersiz yıllık masraf planı.');
     }
   }
   final budgets = migrated['budgets'];

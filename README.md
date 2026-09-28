@@ -41,7 +41,7 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 | **Anasayfa** | Hedefini, kullanılabilir bakiyeni, aylık özeti, finans yönetimi puanını ve geciken ödemeleri gör; kartları açıp kapat ve sıralarını düzenle. |
 | **Gelir & Gider** | Tür, kategori, tarih, tutar ve tekrara göre filtrele; özel kategorilerini ve düzenli ödemelerini yönet. |
 | **Cüzdan** | Birikim hedeflerini tarih ve aylık katkıyla planla; genel ve kategori bütçelerini izle. |
-| **Analiz** | Dönem karşılaştırması, günlük ortalama, harcama öne çıkanları ve yeterli veriyle ay sonu tahminini gör. |
+| **Analiz** | Dönem karşılaştırmasını, hareketli harcama dağılımını, Paranın Yolculuğu akışını ve Yıllık Masraf Radarı'nı gör. |
 | **Profil** | Kategorileri ve yerel bildirimleri yönet; JSON yedek oluştur/geri yükle ve Türkçe CSV aktar. |
 
 ### Daha az uğraş, daha düzenli takip
@@ -55,6 +55,8 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 - **Hızlı ekleme:** her ekrandaki **+** düğmesinden gelir, gider veya birikim hedefi oluştur.
 - **Düzenlenebilir ana ekran:** başlıktaki düzenleme simgesinden hedef, aylık özet, ayrı bakiye, ayrı gelir/gider, son hareketler ve geciken ödeme kartlarını seçip sırala. Düzen cihazda saklanır. Varsayılan görünümde bakiye, gelir ve gider aylık özet kartında birlikte yer alır.
 - **Finans yönetimi puanı:** son üç tamamlanmış ay ve içinde bulunulan ayın kayıtlarını; gelir/gider dengesi, bütçe limitleri, birikime yatırma ve çekme, düzenli faturalar, gelir düzeni, aylık gidişat, bakiye tamponu ve harcama dağılımı üzerinden değerlendirir. Detay ekranı her alanın puanını ve kayda dayalı yorumları gösterir. Verisi olmayan alanlar ağırlık hesabından çıkarılır; otomatik ödeme kayıtları banka tahsilatının kanıtı değildir.
+- **Paranın Yolculuğu:** seçili dönemin gelirlerini, gider kategorilerini, birikime yatırma/çekmeyi ve dönemlik artışı ayrı akışlar halinde gösterir. Bir akışa dokununca onu oluşturan kayıtlar açılır. Çember grafiği harcama ve birikim paylarını hareketli dilimlerle gösterir; birikim aktarımı gelir veya gider sayılmaz.
+- **Yıllık masraf radarı:** yıllık tekrarlayan giderleri otomatik gösterir; ayrıca sigorta, bakım veya okul gibi masrafları plan olarak ekleyebilirsin. Ay takvimi ve vade tarihine göre aylık ayırma önerisi sunar. Manuel planlar bakiyeyi değiştirmez veya ödendi sayılmaz.
 - **Aylık birikim sözü:** her hedefe isteğe bağlı aylık tutar ve ayın son gününü ekleyebilirsin. Vade geçince eksik tutar hedef kartında ve Profil uyarısında görünür; zamanında ve gecikmeli yatırımlar finans puanında ayrı değerlendirilir. Eski hedefler kendiliğinden gecikmiş sayılmaz.
 - **Profil ve yedek:** Profil, en önemli güncel uyarıyı ve son yedek tarihini gösterir. JSON yedeği güncel veri şemasını, aylık planları, ekran tercihlerini ve kurulu uygulamanın sürümünü taşır.
 - **Android'de dosya kaydetme:** JSON yedeği ve CSV, sistemin belge oluşturma ekranında seçtiğin konuma yazılır. İptal edilen işlem son yedek tarihini değiştirmez.
@@ -64,7 +66,7 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 
 ### Hareketli bir deneyim
 
-Birikio açılırken logonun katmanları birleşir, altın para yerine oturur ve uygulama adı belirir. Sayfa geçişlerinde kayma, yakınlaşma, bulanıklık ve ışık efektleri birlikte kullanılır.
+Birikio açılırken logonun katmanları birleşir, altın para yerine oturur ve uygulama adı belirir. Alt sekmeler arasındaki geniş dalga, seçilen sekmenin yönüne doğru kayar. Gelir & Gider, Cüzdan ve Analiz içindeki görünümler bulanıklıkla açılır; hareket azaltma tercihi bu geçişlere de uygulanır.
 
 Yarış motorunun dönen jantları ve kayan yol çizgileri, diğer hedeflerin kendilerine özgü hareketleri, para ekleme/çekmedeki yeşil–kırmızı banknotlar, gelir/gider eklemedeki yönlü ışık parçacıkları ve animasyonlu ilerleme göstergeleri hedeflerini görünür kılar. Azaltılmış hareket tercihinde açılış ve kayıt animasyonları atlanır.
 

@@ -43,7 +43,16 @@ void main() {
         await tester.tap(find.text(label).last);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 180));
-        expect(find.byType(ImageFiltered), findsWidgets);
+        expect(find.byType(CinematicPageTransition), findsWidgets);
+        expect(
+          tester
+              .widgetList<CinematicPageTransition>(
+                find.byType(CinematicPageTransition),
+              )
+              .any((transition) => transition.entering),
+          isTrue,
+        );
+        expect(find.byType(ClipPath), findsWidgets);
         expect(tester.takeException(), isNull);
         await tester.pump(const Duration(milliseconds: 600));
         expect(tester.takeException(), isNull);

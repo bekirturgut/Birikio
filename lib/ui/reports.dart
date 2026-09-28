@@ -2,9 +2,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/store.dart';
 import '../data/analytics.dart';
+import '../data/money_journey.dart';
 import 'widgets.dart';
 import 'palette.dart';
 import 'forms.dart';
+import 'money_journey.dart';
+import 'annual_radar.dart';
+import 'orbit_chart.dart';
 
 class BudgetPage extends StatefulWidget {
   final FinanceStore store;
@@ -472,13 +476,102 @@ class AnalysisPage extends StatefulWidget {
 }
 
 class _AnalysisPageState extends State<AnalysisPage> {
+  int view = 0;
+  int breakdownKind = 0;
   String _changeText(int current, int previous) {
     if (previous == 0) {
-      return current == 0 ? 'değişim yok' : 'önceki dönemde kayıt yok';
+      return current == 0 ? 'Kayıt yok' : 'İlk dönem';
     }
     final percent = ((current - previous) / previous * 100).round();
     return '${percent >= 0 ? '+' : ''}%$percent';
   }
+
+  Widget _trendTile(
+    String label,
+    int current,
+    int previous,
+    IconData icon,
+    Color color,
+  ) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: color.withValues(alpha: .17)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 12),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          _changeText(current, previous),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          previous == 0 ? 'Önceki dönemde veri yok' : 'Önceki döneme göre',
+          maxLines: 2,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _insightRow(String label, String value, IconData icon, Color color) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   int mode = 2;
   DateTime selected = day(DateTime.now());
@@ -525,283 +618,522 @@ class _AnalysisPageState extends State<AnalysisPage> {
         income = sum(between(start, end), true),
         expense = sum(between(start, end), false);
     final cats = <String, int>{};
-    for (final e in list.where((e) => !e.income)) {
+    for (final e in list.where((e) => e.income == (breakdownKind == 1))) {
       cats[e.category] = (cats[e.category] ?? 0) + e.amount;
     }
     final sorted = cats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    final journey = calculateMoneyJourney(widget.store, start, end);
+    const chartColors = <Color>[
+      Color(0xFF70E5BC),
+      Color(0xFFB9A3FF),
+      Color(0xFFFFD780),
+      Color(0xFFFF7D8C),
+      Color(0xFF78B9FF),
+      Color(0xFFDA9EFB),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: EdgeInsets.all(4),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
-            children: List.generate(
-              4,
-              (i) => Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => setState(() => mode = i),
-                  child: AnimatedContainer(
-                    duration: Duration(milliseconds: 220),
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: mode == i
-                          ? financeColors(context).accent
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      ['Günlük', 'Haftalık', 'Aylık', 'Yıllık'][i],
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: mode == i
-                            ? financeColors(context).onAccent
-                            : null,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: 18),
-        InkWell(
-          onTap: selectPeriod,
-          borderRadius: BorderRadius.circular(18),
-          child: Panel(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.calendar_month_rounded,
-                  color: financeColors(context).accent,
-                  size: 20,
-                ),
-                SizedBox(width: 12),
+            children: [
+              for (var i = 0; i < 3; i++)
                 Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
-                ),
-                Icon(Icons.expand_more_rounded),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 18),
-        Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Eyebrow('DÖNEMİN ÖZETİ'),
-              SizedBox(height: 12),
-              Amount(
-                income - expense,
-                size: 34,
-                color: income >= expense
-                    ? Theme.of(context).colorScheme.primary
-                    : financeColors(context).negative,
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Net gelir · ${list.length} işlem',
-                style: TextStyle(fontSize: 12),
-              ),
-              SizedBox(height: 28),
-              chartBar(
-                'Gelir',
-                income,
-                math.max(income, expense),
-                financeColors(context).positive,
-              ),
-              SizedBox(height: 18),
-              chartBar(
-                'Gider',
-                expense,
-                math.max(income, expense),
-                financeColors(context).negative,
-              ),
-              SizedBox(height: 24),
-              Text(
-                income == 0
-                    ? 'Birikim oranı için bu dönemde gelir kaydı gerekiyor.'
-                    : 'Gelirinin %${((income - expense) / income * 100).round()} kadarı harcamalar sonrası kaldı.',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.5,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 18),
-        Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Eyebrow('HARCAMA İÇGÖRÜLERİ'),
-              const SizedBox(height: 14),
-              Text(
-                'Önceki döneme göre gelir: ${_changeText(income, insights.previousIncome)}',
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Önceki döneme göre gider: ${_changeText(expense, insights.previousExpense)}',
-              ),
-              const SizedBox(height: 6),
-              Text('Günlük ortalama gider: ${money(insights.dailyAverage)}'),
-              if (insights.topCategory != null) ...[
-                const SizedBox(height: 6),
-                Text('En çok harcanan kategori: ${insights.topCategory}'),
-              ],
-              if (insights.highestDay != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'En yüksek harcama günü: ${dateLabel(insights.highestDay!)}',
-                ),
-              ],
-              const SizedBox(height: 6),
-              Text(
-                'Hedeflere aktarılan net tutar: ${money(insights.goalTransfers)}',
-              ),
-              if (insights.projectedMonthlyExpense != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Ay sonu gider tahmini: ${money(insights.projectedMonthlyExpense!)}',
-                ),
-                Text(
-                  'Şimdiye kadarki günlük ortalama ayın kalanında sürerse; en az 7 günlük kayıtla hesaplanır.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if ((widget.store.budgets[widget.store.budgetKey(start)] ?? 0) >
-                    0)
-                  Text(
-                    insights.projectedMonthlyExpense! >
-                            widget.store.budgets[widget.store.budgetKey(start)]!
-                        ? 'Bu hızla aylık limit aşılabilir.'
-                        : 'Bu hızla aylık limit içinde kalınabilir.',
-                  ),
-              ],
-            ],
-          ),
-        ),
-        SizedBox(height: 26),
-        Text(
-          'Paran nereye gidiyor?',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        ),
-        SizedBox(height: 14),
-        Panel(
-          child: Column(
-            children: [
-              if (sorted.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 24,
-                    horizontal: 12,
-                  ),
-                  child: Column(
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: .75, end: 1),
-                        duration: Duration(
-                          milliseconds: MediaQuery.disableAnimationsOf(context)
-                              ? 0
-                              : 600,
-                        ),
-                        curve: Curves.easeOutBack,
-                        builder: (_, value, child) =>
-                            Transform.scale(scale: value, child: child),
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: financeColors(
-                              context,
-                            ).accent.withValues(alpha: .1),
-                          ),
-                          child: Icon(
-                            Icons.donut_small_rounded,
-                            color: financeColors(context).accent,
-                            size: 32,
-                          ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => setState(() => view = i),
+                    child: AnimatedContainer(
+                      duration: Duration(
+                        milliseconds: MediaQuery.disableAnimationsOf(context)
+                            ? 0
+                            : 250,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: view == i
+                            ? financeColors(
+                                context,
+                              ).accent.withValues(alpha: .22)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: view == i
+                              ? financeColors(
+                                  context,
+                                ).accent.withValues(alpha: .55)
+                              : Colors.transparent,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Bu dönemde gider kaydı yok.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Kayıt eklediğinde kategori dağılımın burada belirecek.',
+                      child: Text(
+                        ['Özet', 'Para akışı', 'Yıllık radar'][i],
                         textAlign: TextAlign.center,
                         style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: view == i
+                              ? financeColors(context).accent
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        AnimatedSwitcher(
+          duration: Duration(milliseconds: widget.store.motion ? 420 : 0),
+          reverseDuration: Duration(
+            milliseconds: widget.store.motion ? 250 : 0,
+          ),
+          transitionBuilder: (child, animation) =>
+              BlurTabTransition(animation: animation, child: child),
+          child: Column(
+            key: ValueKey('analysis-$view-$mode-${selected.toIso8601String()}'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (view != 2) ...[
+                Container(
+                  padding: EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: List.generate(
+                      4,
+                      (i) => Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => mode = i),
+                          child: AnimatedContainer(
+                            duration: Duration(milliseconds: 220),
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: mode == i
+                                  ? financeColors(context).accent
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              ['Günlük', 'Haftalık', 'Aylık', 'Yıllık'][i],
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: mode == i
+                                    ? financeColors(context).onAccent
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 18),
+                InkWell(
+                  onTap: selectPeriod,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Panel(
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month_rounded,
+                          color: financeColors(context).accent,
+                          size: 20,
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.expand_more_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 18),
+              ],
+              if (view == 1) ...[
+                MoneyJourneyCard(store: widget.store, start: start, end: end),
+                if (journey.total > 0) ...[
+                  const SizedBox(height: 18),
+                  Panel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Eyebrow('DÖNEMİN PAYLARI'),
+                        const SizedBox(height: 7),
+                        const Text(
+                          'Para hangi yöne aktı?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        OrbitChart(
+                          key: ValueKey(
+                            'flow-${start.toIso8601String()}-${end.toIso8601String()}',
+                          ),
+                          centerLabel: 'Dönemin payı',
+                          slices: [
+                            ChartSlice(
+                              'Giderler',
+                              journey.expenses,
+                              financeColors(context).negative,
+                            ),
+                            ChartSlice(
+                              'Birikime yatırılan',
+                              journey.deposits,
+                              financeColors(context).accent,
+                            ),
+                            ChartSlice(
+                              'Dönemde artan',
+                              math.max(0, journey.change),
+                              financeColors(context).positive,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+              if (view == 2) AnnualRadar(store: widget.store),
+              if (view == 0) ...[
+                Panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow('DÖNEMİN ÖZETİ'),
+                      SizedBox(height: 12),
+                      Amount(
+                        income - expense,
+                        size: 34,
+                        color: income >= expense
+                            ? Theme.of(context).colorScheme.primary
+                            : financeColors(context).negative,
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Net gelir · ${list.length} işlem',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      SizedBox(height: 28),
+                      chartBar(
+                        'Gelir',
+                        income,
+                        math.max(income, expense),
+                        financeColors(context).positive,
+                      ),
+                      SizedBox(height: 18),
+                      chartBar(
+                        'Gider',
+                        expense,
+                        math.max(income, expense),
+                        financeColors(context).negative,
+                      ),
+                      SizedBox(height: 24),
+                      Text(
+                        income == 0
+                            ? 'Birikim oranı için bu dönemde gelir kaydı gerekiyor.'
+                            : 'Gelirinin %${((income - expense) / income * 100).round()} kadarı harcamalar sonrası kaldı.',
+                        style: TextStyle(
                           fontSize: 12,
+                          height: 1.5,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ...sorted.map(
-                (e) => Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
+                SizedBox(height: 18),
+                Panel(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Expanded(
-                            child: Text(e.key, style: TextStyle(fontSize: 13)),
-                          ),
-                          Text(
-                            money(e.value),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: financeColors(
+                                context,
+                              ).accent.withValues(alpha: .13),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 19,
+                              color: financeColors(context).accent,
                             ),
                           ),
-                          SizedBox(width: 10),
-                          Text(
-                            '%${(e.value / expense * 100).round()}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: financeColors(context).accent,
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Eyebrow('HARCAMA İÇGÖRÜLERİ'),
+                                SizedBox(height: 3),
+                                Text(
+                                  'Bu dönemin izleri',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: e.value / expense,
-                          color: financeColors(context).accent,
-                          backgroundColor: lavender.withValues(alpha: .1),
-                          minHeight: 5,
-                        ),
+                      const SizedBox(height: 18),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _trendTile(
+                              'Gelir değişimi',
+                              income,
+                              insights.previousIncome,
+                              Icons.south_west_rounded,
+                              financeColors(context).positive,
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: _trendTile(
+                              'Gider değişimi',
+                              expense,
+                              insights.previousExpense,
+                              Icons.north_east_rounded,
+                              financeColors(context).negative,
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 10),
+                      _insightRow(
+                        'Günlük ortalama',
+                        money(insights.dailyAverage),
+                        Icons.today_rounded,
+                        financeColors(context).gold,
+                      ),
+                      if (insights.topCategory != null)
+                        _insightRow(
+                          'En çok harcanan',
+                          insights.topCategory!,
+                          Icons.category_rounded,
+                          financeColors(context).negative,
+                        ),
+                      if (insights.highestDay != null)
+                        _insightRow(
+                          'En yoğun gün',
+                          dateLabel(insights.highestDay!),
+                          Icons.calendar_today_rounded,
+                          financeColors(context).gold,
+                        ),
+                      _insightRow(
+                        'Hedeflere net aktarım',
+                        money(insights.goalTransfers),
+                        Icons.savings_rounded,
+                        financeColors(context).accent,
+                      ),
+                      if (insights.projectedMonthlyExpense != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: financeColors(
+                              context,
+                            ).accent.withValues(alpha: .09),
+                            borderRadius: BorderRadius.circular(17),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'AY SONU TAHMİNİ',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.3,
+                                  color: financeColors(context).accent,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                money(insights.projectedMonthlyExpense!),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                (widget.store.budgets[widget.store.budgetKey(
+                                              start,
+                                            )] ??
+                                            0) >
+                                        0
+                                    ? insights.projectedMonthlyExpense! >
+                                              widget.store.budgets[widget.store
+                                                  .budgetKey(start)]!
+                                          ? 'Bu hızla aylık limit aşılabilir.'
+                                          : 'Bu hızla aylık limit içinde kalınabilir.'
+                                    : 'Şu ana kadarki harcama hızına göre.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
+                SizedBox(height: 26),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Kategori dağılımı',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    for (var i = 0; i < 2; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 5),
+                        child: ChoiceChip(
+                          label: Text(
+                            i == 0 ? 'Gider' : 'Gelir',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          selected: breakdownKind == i,
+                          onSelected: (_) => setState(() => breakdownKind = i),
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: 14),
+                Panel(
+                  child: Column(
+                    children: [
+                      if (sorted.isNotEmpty) ...[
+                        OrbitChart(
+                          key: ValueKey(
+                            'category-$breakdownKind-${start.toIso8601String()}-${end.toIso8601String()}',
+                          ),
+                          centerLabel: breakdownKind == 0
+                              ? 'Gider payı'
+                              : 'Gelir payı',
+                          slices: [
+                            for (var i = 0; i < sorted.length && i < 5; i++)
+                              ChartSlice(
+                                sorted[i].key,
+                                sorted[i].value,
+                                chartColors[i % chartColors.length],
+                              ),
+                            if (sorted.length > 5)
+                              ChartSlice(
+                                'Diğer kategoriler',
+                                sorted
+                                    .skip(5)
+                                    .fold(0, (sum, entry) => sum + entry.value),
+                                chartColors[5],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (sorted.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 24,
+                            horizontal: 12,
+                          ),
+                          child: Column(
+                            children: [
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: .75, end: 1),
+                                duration: Duration(
+                                  milliseconds:
+                                      MediaQuery.disableAnimationsOf(context)
+                                      ? 0
+                                      : 600,
+                                ),
+                                curve: Curves.easeOutBack,
+                                builder: (_, value, child) =>
+                                    Transform.scale(scale: value, child: child),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: financeColors(
+                                      context,
+                                    ).accent.withValues(alpha: .1),
+                                  ),
+                                  child: Icon(
+                                    Icons.donut_small_rounded,
+                                    color: financeColors(context).accent,
+                                    size: 32,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                breakdownKind == 0
+                                    ? 'Bu dönemde gider kaydı yok.'
+                                    : 'Bu dönemde gelir kaydı yok.',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Kayıt eklediğinde kategori dağılımın burada belirecek.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

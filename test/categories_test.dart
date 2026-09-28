@@ -209,7 +209,7 @@ void main() {
     ]);
     await tester.pumpWidget(BirikioApp(store: store));
     await tester.tap(find.text('Gelir & Gider').last);
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Filtrele ve sırala'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'En az'), '50');

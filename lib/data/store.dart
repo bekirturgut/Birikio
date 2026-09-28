@@ -265,6 +265,40 @@ class Transfer {
   );
 }
 
+class AnnualPlan {
+  String id, title, category;
+  int amount, month, dueDay, startYear;
+  AnnualPlan({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.month,
+    required this.dueDay,
+    required this.startYear,
+  });
+  DateTime dueIn(int year) =>
+      DateTime(year, month, min(dueDay, DateTime(year, month + 1, 0).day));
+  Map<String, dynamic> json() => {
+    'id': id,
+    'title': title,
+    'category': category,
+    'amount': amount,
+    'month': month,
+    'dueDay': dueDay,
+    'startYear': startYear,
+  };
+  factory AnnualPlan.read(Map<String, dynamic> j) => AnnualPlan(
+    id: j['id'],
+    title: j['title'],
+    category: j['category'],
+    amount: j['amount'],
+    month: j['month'],
+    dueDay: j['dueDay'],
+    startYear: j['startYear'],
+  );
+}
+
 class FinanceStore extends ChangeNotifier {
   static const defaultDashboardSections = <String>[
     'goal',
@@ -295,6 +329,7 @@ class FinanceStore extends ChangeNotifier {
   List<RepeatRule> rules = [];
   List<Goal> goals = [];
   List<Transfer> transfers = [];
+  List<AnnualPlan> annualPlans = [];
   Map<String, int> budgets = {};
   Map<String, Map<String, int>> categoryBudgets = {};
   bool notificationsEnabled = false;
@@ -373,6 +408,11 @@ class FinanceStore extends ChangeNotifier {
       (r) => r.income == income && r.category == oldName,
     )) {
       rule.category = value;
+    }
+    if (!income) {
+      for (final plan in annualPlans.where((p) => p.category == oldName)) {
+        plan.category = value;
+      }
     }
     if (!income) {
       for (final monthly in categoryBudgets.values) {
@@ -455,6 +495,7 @@ class FinanceStore extends ChangeNotifier {
     'rules': rules.map((e) => e.json()).toList(),
     'goals': goals.map((e) => e.json()).toList(),
     'transfers': transfers.map((e) => e.json()).toList(),
+    'annualPlans': annualPlans.map((e) => e.json()).toList(),
     'budgets': budgets,
     'categoryBudgets': categoryBudgets,
     'notificationsEnabled': notificationsEnabled,
@@ -485,6 +526,9 @@ class FinanceStore extends ChangeNotifier {
         .toList();
     final nextTransfers = (document['transfers'] as List)
         .map((e) => Transfer.read(Map<String, dynamic>.from(e)))
+        .toList();
+    final nextAnnualPlans = (document['annualPlans'] as List)
+        .map((e) => AnnualPlan.read(Map<String, dynamic>.from(e)))
         .toList();
     final nextBudgets = Map<String, int>.from(document['budgets']);
     final nextCategoryBudgets = (document['categoryBudgets'] as Map).map(
@@ -522,6 +566,7 @@ class FinanceStore extends ChangeNotifier {
         ...income ? nextIncomeCategories : nextExpenseCategories,
         ...nextEntries.where((e) => e.income == income).map((e) => e.category),
         ...nextRules.where((r) => r.income == income).map((r) => r.category),
+        if (!income) ...nextAnnualPlans.map((p) => p.category),
         if (!income)
           ...nextCategoryBudgets.values.expand((monthly) => monthly.keys),
       };
@@ -549,6 +594,7 @@ class FinanceStore extends ChangeNotifier {
     rules = nextRules;
     goals = nextGoals;
     transfers = nextTransfers;
+    annualPlans = nextAnnualPlans;
     budgets = nextBudgets;
     categoryBudgets = nextCategoryBudgets;
     notificationsEnabled = nextNotificationsEnabled;

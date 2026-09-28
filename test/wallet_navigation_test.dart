@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:birikio/data/store.dart';
 import 'package:birikio/ui/app.dart';
+import 'package:birikio/ui/widgets.dart';
 
 void main() {
   testWidgets('dashboard icon follows light and dark theme', (tester) async {
@@ -26,7 +27,7 @@ void main() {
     final store = FinanceStore(read: () async => null, write: (_) async {});
     await tester.pumpWidget(BirikioApp(store: store));
     await tester.tap(find.text('Cüzdan').last);
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
     expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsOneWidget);
     tester
         .widget<InkWell>(
@@ -38,7 +39,7 @@ void main() {
               .first,
         )
         .onTap!();
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
     expect(find.text('AYLIK HARCAMA PLANI'), findsOneWidget);
     expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsNothing);
     tester
@@ -51,8 +52,34 @@ void main() {
               .first,
         )
         .onTap!();
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
     expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsOneWidget);
     expect(find.text('AYLIK HARCAMA PLANI'), findsNothing);
+  });
+
+  testWidgets('bottom navigation wave follows tab direction', (tester) async {
+    final store = FinanceStore(read: () async => null, write: (_) async {});
+    await tester.pumpWidget(BirikioApp(store: store));
+    await tester.tap(find.text('Cüzdan').last);
+    await tester.pump();
+    expect(
+      tester
+          .widgetList<CinematicPageTransition>(
+            find.byType(CinematicPageTransition),
+          )
+          .every((transition) => transition.direction == 1),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gelir & Gider').last);
+    await tester.pump();
+    expect(
+      tester
+          .widgetList<CinematicPageTransition>(
+            find.byType(CinematicPageTransition),
+          )
+          .every((transition) => transition.direction == -1),
+      isTrue,
+    );
   });
 }

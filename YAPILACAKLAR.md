@@ -159,3 +159,15 @@ Bu dosya, 28 Eylül 2026 tarihli repo inceleme sohbeti ve ardından verilen kara
 - [ ] Android gerçek cihazda, iOS hedefleniyorsa macOS/Xcode ve gerçek cihazda yayın öncesi doğrulama yap.
 
 **Bitti sayılması:** Sürüm üretimi tekrarlanabilir, test kapısı çalışır ve dağıtım kimliği/imzası bilinçli seçilmiştir.
+
+## 14. Paranın Yolculuğu ve yıllık masraf radarı
+
+- [x] Analiz ekranında Özet / Para akışı / Yıllık radar görünümlerini ekle.
+- [x] Seçili dönem gelirlerini, giderlerini, birikime yatırma ve çekmeyi ayrı akışlar halinde hesapla; dönem artışı ve açığını doğru göster. Akışa dokununca ilgili kayıtları aç.
+- [x] Harcama kategorileri ve dönem payları için dokunulabilir, hareketli dilim grafikleri ekle. Azaltılmış hareket tercihine uy.
+- [x] Yıllık tekrarlayan giderleri radara otomatik dahil et; elle girilen yıllık masraf planlarını gerçek giderlerden ayrı sakla, düzenle ve sil.
+- [x] Yıllık planların ilk vade yılını, ay sonu ve artık yıl davranışını koru; aylık ayırma önerisini birikmiş para gibi gösterme.
+- [x] Yeni planları sürümlü yerel veriye ve JSON yedeğine ekle; eski yedeklerin açılmasını ve bozuk planın geri yüklemeyi durdurmasını test et.
+- [x] Alt sekme geçişini yönü izleyen geniş dalgalı animasyona çevir; iç sekmelere bulanık geçiş ekle ve hareket kapalıyken geçişleri atla.
+
+**Bitti sayılması:** Analiz görünümleri birbirinin hesabını bozmadan açılır; planlar bakiyeyi değiştirmez; önceki kayıtlar yeni sürümde korunur.

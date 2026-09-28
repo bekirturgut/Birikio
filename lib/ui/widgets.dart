@@ -776,14 +776,18 @@ class RacingMotorPainter extends CustomPainter {
       oldDelegate.phase != phase;
 }
 
-/// A visible depth transition with a travelling mint/lilac light band.
+/// A wave follows the direction of travel between navigation destinations.
 class CinematicPageTransition extends StatelessWidget {
   final Animation<double> animation;
   final Widget child;
+  final bool entering;
+  final int direction;
   const CinematicPageTransition({
     super.key,
     required this.animation,
     required this.child,
+    required this.entering,
+    this.direction = 1,
   });
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -791,57 +795,163 @@ class CinematicPageTransition extends StatelessWidget {
     child: child,
     builder: (context, child) {
       final t = animation.value.clamp(0.0, 1.0);
-      if (t >= 1 || MediaQuery.disableAnimationsOf(context)) return child!;
-      final progress = Curves.easeOutQuart.transform(t);
-      final light = math.sin(t * math.pi);
+      if (t >= 1 || MediaQuery.disableAnimationsOf(context)) {
+        return IgnorePointer(ignoring: !entering, child: child!);
+      }
+      final progress = Curves.easeInOutCubic.transform(t);
       return ClipRect(
         child: LayoutBuilder(
           builder: (_, constraints) => Stack(
             children: [
-              Opacity(
-                opacity: Curves.easeOut.transform(t),
-                child: Transform.translate(
-                  offset: Offset(
-                    (1 - progress) * constraints.maxWidth * .28,
-                    (1 - progress) * 34,
-                  ),
-                  child: Transform.scale(
-                    scale: .91 + .09 * progress,
-                    alignment: Alignment.topCenter,
-                    child: ImageFiltered(
-                      imageFilter: ui.ImageFilter.blur(
-                        sigmaX: (1 - progress) * 5,
-                        sigmaY: (1 - progress) * 5,
-                      ),
-                      child: child,
+              IgnorePointer(
+                ignoring: !entering,
+                child: ClipPath(
+                  clipper: _PageWaveClipper(progress, entering, direction),
+                  child: Transform.translate(
+                    offset: Offset(
+                      (entering ? 1 : -1) *
+                          direction *
+                          (1 - progress) *
+                          constraints.maxWidth *
+                          .13,
+                      0,
                     ),
+                    child: child,
                   ),
                 ),
               ),
               Positioned.fill(
                 child: IgnorePointer(
-                  child: Opacity(
-                    opacity: light * .32,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment(-2.5 + t * 4, -1),
-                          end: Alignment(-1.1 + t * 4, 1),
-                          colors: [
-                            Colors.transparent,
-                            lavender.withValues(alpha: .07),
-                            lavender.withValues(alpha: .45),
-                            mint.withValues(alpha: .14),
-                            Colors.transparent,
-                          ],
-                          stops: const [0, .35, .5, .6, 1],
-                        ),
-                      ),
+                  child: CustomPaint(
+                    painter: _PageWaveLight(
+                      progress,
+                      entering,
+                      direction,
+                      financeColors(context).accent,
                     ),
                   ),
                 ),
               ),
             ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+double _waveX(
+  double y,
+  Size size,
+  double progress,
+  bool entering,
+  int direction,
+) {
+  final edge = size.width * (entering ? 1 - progress : progress);
+  final amplitude = math.sin(progress * math.pi) * 38;
+  final x =
+      edge +
+      math.sin(y / size.height * math.pi * 2.2 - progress * math.pi * 2) *
+          amplitude;
+  return direction == 1 ? x : size.width - x;
+}
+
+class _PageWaveClipper extends CustomClipper<Path> {
+  final double progress;
+  final bool entering;
+  final int direction;
+  _PageWaveClipper(this.progress, this.entering, this.direction);
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final rightSide = entering == (direction == 1);
+    final side = rightSide ? size.width : 0.0;
+    path.moveTo(side, 0);
+    path.lineTo(side, size.height);
+    for (var y = size.height; y >= 0; y -= 7) {
+      path.lineTo(_waveX(y, size, progress, entering, direction), y);
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_PageWaveClipper old) =>
+      old.progress != progress ||
+      old.entering != entering ||
+      old.direction != direction;
+}
+
+class _PageWaveLight extends CustomPainter {
+  final double progress;
+  final bool entering;
+  final int direction;
+  final Color color;
+  _PageWaveLight(this.progress, this.entering, this.direction, this.color);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final brightness = math.sin(progress * math.pi);
+    if (brightness <= 0) return;
+    final path = Path()
+      ..moveTo(_waveX(0, size, progress, entering, direction), 0);
+    for (var y = 7.0; y <= size.height; y += 7) {
+      path.lineTo(_waveX(y, size, progress, entering, direction), y);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withValues(alpha: .27 * brightness)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 24
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 17),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withValues(alpha: .48 * brightness)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PageWaveLight old) =>
+      old.progress != progress ||
+      old.entering != entering ||
+      old.direction != direction ||
+      old.color != color;
+}
+
+class BlurTabTransition extends StatelessWidget {
+  final Animation<double> animation;
+  final Widget child;
+  const BlurTabTransition({
+    super.key,
+    required this.animation,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: animation,
+    child: child,
+    builder: (context, child) {
+      if (MediaQuery.disableAnimationsOf(context)) return child!;
+      final progress = Curves.easeOutCubic.transform(
+        animation.value.clamp(0.0, 1.0),
+      );
+      return IgnorePointer(
+        ignoring: progress < .99,
+        child: Opacity(
+          opacity: progress,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: (1 - progress) * 7,
+              sigmaY: (1 - progress) * 7,
+            ),
+            child: Transform.translate(
+              offset: Offset(0, (1 - progress) * 12),
+              child: child,
+            ),
           ),
         ),
       );
