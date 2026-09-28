@@ -1,10 +1,70 @@
 import 'package:birikio/data/store.dart';
 import 'package:birikio/ui/app.dart';
 import 'package:birikio/ui/forms.dart';
+import 'package:birikio/ui/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('every goal category renders an animated scene', (tester) async {
+    for (final category in goalIcons.keys) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 110,
+              child: GoalScene(icon: category, motion: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(tester.takeException(), isNull, reason: category);
+    }
+  });
+
+  testWidgets(
+    'goal category picker shows more than ten choices and saves selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final store = FinanceStore(read: () async => null, write: (_) async {})
+        ..motion = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GoalForm(store: store)),
+        ),
+      );
+      expect(goalIcons.length, greaterThan(10));
+      expect(
+        find.text('Kategoriyi değiştir · ${goalIcons.length} seçenek'),
+        findsOneWidget,
+      );
+      expect(find.byType(ChoiceChip), findsNothing);
+      await tester.tap(
+        find.text('Kategoriyi değiştir · ${goalIcons.length} seçenek'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Birikim kategorisi'), findsOneWidget);
+      await tester.drag(find.byType(GridView).last, const Offset(0, -420));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Müzik').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Müzik'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Hedef tutar'),
+        '1000',
+      );
+      await tester.ensureVisible(find.text('Hedefimi oluştur'));
+      await tester.tap(find.text('Hedefimi oluştur'));
+      await tester.pumpAndSettle();
+      expect(store.goals.single.icon, 'Müzik');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('goal form saves a monthly amount and due day together', (
     tester,
   ) async {

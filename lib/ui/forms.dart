@@ -432,6 +432,87 @@ class _GoalFormState extends State<GoalForm> {
   late int? monthlyDueDay = widget.goal?.monthlyDueDay;
   bool saving = false;
   String? error;
+
+  Future<void> chooseIcon() async {
+    final choice = await sheet<String>(
+      context,
+      FractionallySizedBox(
+        heightFactor: .78,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Birikim kategorisi',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Hayaline uygun olanı seç; görseli hedefinle birlikte canlansın.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: GridView.builder(
+                  itemCount: goalIcons.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.05,
+                  ),
+                  itemBuilder: (sheetContext, index) {
+                    final entry = goalIcons.entries.elementAt(index);
+                    final selected = icon == entry.key;
+                    final colors = financeColors(sheetContext);
+                    return Material(
+                      color: selected
+                          ? colors.accent.withValues(alpha: .2)
+                          : Theme.of(sheetContext).colorScheme.surfaceContainer,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: colors.accent.withValues(
+                            alpha: selected ? .75 : .13,
+                          ),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(sheetContext, entry.key),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(entry.value, size: 31, color: colors.accent),
+                            const SizedBox(height: 8),
+                            Text(
+                              entry.key,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.goalText,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice != null && mounted) setState(() => icon = choice);
+  }
+
   @override
   void dispose() {
     name.dispose();
@@ -445,28 +526,63 @@ class _GoalFormState extends State<GoalForm> {
     key: key,
     child: FormShell(
       title: widget.goal == null ? 'Bir hayalle başla.' : 'Hedefini düzenle',
-      subtitle: 'Bir isim, bir simge ve seni heyecanlandıran bir hedef.',
+      subtitle: 'Bir isim, bir kategori ve seni heyecanlandıran bir hedef.',
       children: [
         GoalScene(
           icon: icon,
           motion:
               widget.store.motion && !MediaQuery.disableAnimationsOf(context),
         ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: goalIcons.entries
-              .map(
-                (e) => ChoiceChip(
-                  selected: icon == e.key,
-                  avatar: e.key == 'Motor'
-                      ? const RacingMotor(width: 24)
-                      : Icon(e.value, size: 18),
-                  label: Text(e.key),
-                  onSelected: (_) => setState(() => icon = e.key),
-                ),
-              )
-              .toList(),
+        Material(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: chooseIcon,
+            child: Padding(
+              padding: const EdgeInsets.all(15),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: financeColors(
+                        context,
+                      ).accent.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      goalIcons[icon] ?? Icons.auto_awesome_rounded,
+                      color: financeColors(context).accent,
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          icon,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          'Kategoriyi değiştir · ${goalIcons.length} seçenek',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 17),
+                ],
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         TextFormField(
@@ -474,7 +590,7 @@ class _GoalFormState extends State<GoalForm> {
           maxLength: 40,
           decoration: const InputDecoration(
             labelText: 'Hedef adı',
-            helperText: 'İsteğe bağlı · boş bırakırsan simge adı kullanılır',
+            helperText: 'İsteğe bağlı · boş bırakırsan kategori adı kullanılır',
             hintText: 'Örn. İlk motorum',
           ),
         ),

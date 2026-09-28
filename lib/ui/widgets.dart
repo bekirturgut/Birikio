@@ -16,6 +16,21 @@ const goalIcons = <String, IconData>{
   'Tatil': Icons.flight_rounded,
   'Teknoloji': Icons.devices_rounded,
   'Güvence': Icons.shield_rounded,
+  'Eğitim': Icons.school_rounded,
+  'İş': Icons.work_rounded,
+  'Sağlık': Icons.favorite_rounded,
+  'Düğün': Icons.diamond_rounded,
+  'Çocuk': Icons.child_care_rounded,
+  'Evcil dost': Icons.pets_rounded,
+  'Spor': Icons.fitness_center_rounded,
+  'Hobi': Icons.palette_rounded,
+  'Bisiklet': Icons.pedal_bike_rounded,
+  'Tekne': Icons.sailing_rounded,
+  'Müzik': Icons.music_note_rounded,
+  'Fotoğraf': Icons.camera_alt_rounded,
+  'Oyun': Icons.sports_esports_rounded,
+  'Yatırım': Icons.trending_up_rounded,
+  'Diğer': Icons.auto_awesome_rounded,
 };
 
 class Panel extends StatelessWidget {
@@ -237,44 +252,55 @@ class _GoalSceneState extends State<GoalScene>
     height: widget.height,
     child: AnimatedBuilder(
       animation: controller,
-      builder: (_, _) => CustomPaint(
-        painter: ScenePainter(
-          controller.value,
-          widget.icon,
-          financeColors(context).accent,
-        ),
-        child: Center(
-          child: Transform.translate(
-            offset: Offset(
-              widget.icon == 'Tatil'
-                  ? math.sin(controller.value * math.pi * 2) * 18
-                  : 0,
-              math.sin(
-                    controller.value *
-                        math.pi *
-                        (widget.icon == 'Motor' ? 16 : 2),
-                  ) *
-                  (widget.icon == 'Motor' ? 1.6 : 5),
-            ),
-            child: Transform.rotate(
-              angle: widget.icon == 'Tatil' ? -.5 : 0,
-              child: widget.icon == 'Motor'
-                  ? RacingMotor(phase: controller.value)
-                  : Icon(
-                      goalIcons[widget.icon],
-                      size: 88,
-                      color: financeColors(context).accent,
-                      shadows: [
-                        Shadow(
-                          color: lavender.withValues(alpha: .6),
-                          blurRadius: 36,
+      builder: (_, _) {
+        final phase = controller.value * math.pi * 2;
+        final travelling = {'Tatil', 'Bisiklet', 'Tekne'}.contains(widget.icon);
+        final pulsing = {
+          'Sağlık',
+          'Çocuk',
+          'Evcil dost',
+          'Düğün',
+        }.contains(widget.icon);
+        return CustomPaint(
+          painter: ScenePainter(
+            controller.value,
+            widget.icon,
+            financeColors(context).accent,
+          ),
+          child: Center(
+            child: Transform.translate(
+              offset: Offset(
+                travelling ? math.sin(phase) * 13 : 0,
+                math.sin(phase * (widget.icon == 'Motor' ? 8 : 1)) *
+                    (widget.icon == 'Motor' ? 1.6 : 4),
+              ),
+              child: Transform.scale(
+                scale: pulsing ? 1 + .07 * math.sin(phase) : 1,
+                child: Transform.rotate(
+                  angle: widget.icon == 'Tatil'
+                      ? -.38
+                      : widget.icon == 'Müzik' || widget.icon == 'Hobi'
+                      ? math.sin(phase) * .08
+                      : 0,
+                  child: widget.icon == 'Motor'
+                      ? RacingMotor(phase: controller.value)
+                      : Icon(
+                          goalIcons[widget.icon] ?? Icons.auto_awesome_rounded,
+                          size: 88,
+                          color: financeColors(context).accent,
+                          shadows: [
+                            Shadow(
+                              color: lavender.withValues(alpha: .6),
+                              blurRadius: 36,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     ),
   );
 }
@@ -303,7 +329,13 @@ class ScenePainter extends CustomPainter {
               Rect.fromCircle(center: center, radius: size.height * .48),
             ),
     );
-    final moving = icon == 'Motor' || icon == 'Araba';
+    final moving = {
+      'Motor',
+      'Araba',
+      'Bisiklet',
+      'Tekne',
+      'Tatil',
+    }.contains(icon);
     for (var i = 0; i < 15; i++) {
       final x = ((i * 43.7 - t * (moving ? 650 : 60)) % size.width);
       final y = (i * 29.3) % size.height;
@@ -321,7 +353,7 @@ class ScenePainter extends CustomPainter {
         );
       }
     }
-    if (moving) {
+    if ({'Motor', 'Araba', 'Bisiklet'}.contains(icon)) {
       final p = Paint()
         ..color = accent.withValues(alpha: .3)
         ..strokeWidth = 2;
@@ -334,7 +366,7 @@ class ScenePainter extends CustomPainter {
         );
       }
     }
-    if (icon == 'Güvence' || icon == 'Ev') {
+    if ({'Güvence', 'Ev', 'Düğün', 'Çocuk', 'Evcil dost'}.contains(icon)) {
       canvas.drawCircle(
         center,
         38 + t * 25,
@@ -344,7 +376,7 @@ class ScenePainter extends CustomPainter {
           ..strokeWidth = 2,
       );
     }
-    if (icon == 'Teknoloji') {
+    if (icon == 'Teknoloji' || icon == 'Fotoğraf') {
       canvas.drawLine(
         Offset(center.dx - 50, t * size.height),
         Offset(center.dx + 50, t * size.height),
@@ -352,6 +384,65 @@ class ScenePainter extends CustomPainter {
           ..color = accent.withValues(alpha: .4)
           ..strokeWidth = 2,
       );
+    }
+    final phase = t * math.pi * 2;
+    final detail = Paint()
+      ..color = accent.withValues(alpha: .5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    if ({'Eğitim', 'İş', 'Yatırım'}.contains(icon)) {
+      for (var i = 0; i < 4; i++) {
+        final height = 9.0 + i * 7 + math.sin(phase + i) * 4;
+        final x = center.dx - 57 + i * 13;
+        canvas.drawLine(
+          Offset(x, size.height - 10),
+          Offset(x, size.height - 10 - height),
+          detail,
+        );
+      }
+    } else if ({'Sağlık', 'Spor'}.contains(icon)) {
+      final y = size.height * .82;
+      final shift = math.sin(phase) * 3;
+      final path = Path()
+        ..moveTo(center.dx - 55, y)
+        ..lineTo(center.dx - 25, y)
+        ..lineTo(center.dx - 17, y - 8 - shift)
+        ..lineTo(center.dx - 9, y + 8)
+        ..lineTo(center.dx, y - 15 - shift)
+        ..lineTo(center.dx + 10, y)
+        ..lineTo(center.dx + 55, y);
+      canvas.drawPath(path, detail);
+    } else if ({'Hobi', 'Müzik', 'Oyun', 'Diğer'}.contains(icon)) {
+      for (var i = 0; i < 8; i++) {
+        final angle = i * math.pi / 4 + phase * .12;
+        final radius = 44 + math.sin(phase + i) * 5;
+        final start =
+            center + Offset(math.cos(angle), math.sin(angle)) * radius;
+        final end =
+            center +
+            Offset(math.cos(angle), math.sin(angle)) *
+                (radius + (i.isEven ? 9 : 5));
+        canvas.drawLine(start, end, detail);
+      }
+    } else if (icon == 'Birikim') {
+      for (var i = 0; i < 5; i++) {
+        final angle = phase * .55 + i * math.pi * 2 / 5;
+        canvas.drawCircle(
+          center + Offset(math.cos(angle) * 58, math.sin(angle) * 36),
+          2.5 + (i.isEven ? 1 : 0),
+          Paint()..color = accent.withValues(alpha: .5),
+        );
+      }
+    } else if (icon == 'Tekne') {
+      for (var i = 0; i < 3; i++) {
+        final y = size.height - 9.0 - i * 8;
+        final path = Path()..moveTo(center.dx - 55, y);
+        for (var x = -54.0; x <= 55; x += 5) {
+          path.lineTo(center.dx + x, y + math.sin(x * .12 + phase + i) * 2);
+        }
+        canvas.drawPath(path, detail);
+      }
     }
     canvas.restore();
   }
