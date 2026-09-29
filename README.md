@@ -41,7 +41,7 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 | **Anasayfa** | Hedefini, kullanılabilir bakiyeni, aylık özeti, finans yönetimi puanını ve geciken ödemeleri gör; kartları açıp kapat ve sıralarını düzenle. |
 | **Gelir & Gider** | Tür, kategori, tarih, tutar ve tekrara göre filtrele; özel kategorilerini ve düzenli ödemelerini yönet. |
 | **Cüzdan** | Birikim hedeflerini tarih ve aylık katkıyla planla; genel ve kategori bütçelerini izle. |
-| **Analiz** | Dönem karşılaştırmasını, hareketli harcama dağılımını, Paranın Yolculuğu akışını ve Yıllık Masraf Radarı'nı gör. |
+| **Analiz** | Günlük, haftalık, aylık veya yıllık dönemi seç; gelir/gider karşılaştırmasını, harcama içgörülerini, kategori dağılımını, Paranın Yolculuğu akışını ve Yıllık Masraf Radarı'nı gör. |
 | **Profil** | Kategorileri ve yerel bildirimleri yönet; JSON yedek oluştur/geri yükle ve Türkçe CSV aktar. |
 
 ### Daha az uğraş, daha düzenli takip
@@ -55,7 +55,7 @@ Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster i
 - **Hızlı ekleme:** her ekrandaki **+** düğmesinden gelir, gider veya birikim hedefi oluştur.
 - **Düzenlenebilir ana ekran:** başlıktaki düzenleme simgesinden hedef, aylık özet, ayrı bakiye, ayrı gelir/gider, son hareketler ve geciken ödeme kartlarını seçip sırala. Düzen cihazda saklanır. Varsayılan görünümde bakiye, gelir ve gider aylık özet kartında birlikte yer alır.
 - **Finans yönetimi puanı:** son üç tamamlanmış ay ve içinde bulunulan ayın kayıtlarını; gelir/gider dengesi, bütçe limitleri, birikime yatırma ve çekme, düzenli faturalar, gelir düzeni, aylık gidişat, bakiye tamponu ve harcama dağılımı üzerinden değerlendirir. Detay ekranı her alanın puanını ve kayda dayalı yorumları gösterir. Verisi olmayan alanlar ağırlık hesabından çıkarılır; otomatik ödeme kayıtları banka tahsilatının kanıtı değildir.
-- **Paranın Yolculuğu:** seçili dönemin gelirlerini, gider kategorilerini, birikime yatırma/çekmeyi ve dönemlik artışı ayrı akışlar halinde gösterir. Bir akışa dokununca onu oluşturan kayıtlar açılır. Çember grafiği harcama ve birikim paylarını hareketli dilimlerle gösterir; birikim aktarımı gelir veya gider sayılmaz.
+- **Paranın Yolculuğu:** seçili dönemin gelirlerini, gider kategorilerini, birikime yatırma/çekmeyi ve dönemlik artışı ayrı akışlar halinde gösterir. Bir akışa dokununca onu oluşturan kayıtlar açılır. Çember grafiğinde paylar eşit kalınlıktaki dilimlerle gösterilir; dilime veya açıklamasına dokununca yüzdesi ve tutarı seçilir. Birikim aktarımı gelir veya gider sayılmaz.
 - **Yıllık masraf radarı:** yıllık tekrarlayan giderleri otomatik gösterir; ayrıca sigorta, bakım veya okul gibi masrafları plan olarak ekleyebilirsin. Ay takvimi ve vade tarihine göre aylık ayırma önerisi sunar. Manuel planlar bakiyeyi değiştirmez veya ödendi sayılmaz.
 - **Aylık birikim sözü:** her hedefe isteğe bağlı aylık tutar ve ayın son gününü ekleyebilirsin. Vade geçince eksik tutar hedef kartında ve Profil uyarısında görünür; zamanında ve gecikmeli yatırımlar finans puanında ayrı değerlendirilir. Eski hedefler kendiliğinden gecikmiş sayılmaz.
 - **Profil ve yedek:** Profil, en önemli güncel uyarıyı ve son yedek tarihini gösterir. JSON yedeği güncel veri şemasını, aylık planları, ekran tercihlerini ve kurulu uygulamanın sürümünü taşır.
@@ -141,6 +141,8 @@ lib/
 ├── data/
 │   ├── store.dart        # Modeller, hesaplar, tekrarlar ve yerel saklama
 │   ├── analytics.dart    # Dönem karşılaştırmaları
+│   ├── money_journey.dart # Dönemlik para akışı hesabı
+│   ├── annual_radar.dart # Yıllık gider takvimi ve plan hesabı
 │   ├── financial_health.dart # Finans yönetimi puanı ve yorumlar
 │   ├── goal_plan.dart   # Aylık hedef vadeleri ve eksik tutar
 │   ├── backup.dart       # JSON yedek ve CSV aktarımı
@@ -149,7 +151,10 @@ lib/
 └── ui/
     ├── app.dart          # Tema, navigasyon ve ana ekranlar
     ├── forms.dart        # Kayıt, hedef ve aktarım formları
-    ├── reports.dart      # Bütçe ve dönem analizleri
+    ├── reports.dart      # Bütçe, dönem analizi ve içgörüler
+    ├── money_journey.dart # Para akışı görünümü
+    ├── annual_radar.dart # Yıllık masraf radarı görünümü
+    ├── orbit_chart.dart  # Etkileşimli halka grafik
     ├── palette.dart      # Temaya uygun finans renkleri
     ├── widgets.dart      # Ortak bileşenler ve görsel animasyonlar
     ├── brand.dart        # Birikio logosu
@@ -165,7 +170,7 @@ flutter analyze
 flutter test
 ```
 
-Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, veri geçişi, bütçe ve fatura hesapları, tema kontrastı, widget seçimi, hedef tamamlama ve açılış akışlarını kapsar.
+Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, veri geçişi, bütçe ve fatura hesapları, para akışı, yıllık masraf planları, dar ekran yerleşimi, tema kontrastı, widget seçimi, hedef tamamlama ve açılış akışlarını kapsar.
 
 ### Görselleri yeniden üretme
 
