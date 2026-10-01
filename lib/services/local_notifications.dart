@@ -20,8 +20,12 @@ class LocalNotifications {
   Future<void> initialize() async {
     if (!supported || initialized) return;
     tz.initializeTimeZones();
-    final zone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(zone.identifier));
+    try {
+      final zone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(zone.identifier));
+    } catch (_) {
+      tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+    }
     await plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('ic_launcher'),
@@ -39,12 +43,13 @@ class LocalNotifications {
     if (!supported) return false;
     await initialize();
     if (Platform.isAndroid) {
-      return await plugin
-              .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
-              >()
-              ?.requestNotificationsPermission() ??
-          false;
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (await android?.areNotificationsEnabled() == true) return true;
+      await android?.requestNotificationsPermission();
+      return await android?.areNotificationsEnabled() == true;
     }
     return await plugin
             .resolvePlatformSpecificImplementation<
@@ -58,6 +63,12 @@ class LocalNotifications {
     if (!supported) return;
     await initialize();
     await plugin.cancelAll();
+  }
+
+  Future<void> openSettings() async {
+    if (!supported) return;
+    await initialize();
+    await plugin.openAppNotificationSettings();
   }
 
   Future<void> sync(FinanceStore store) async {
@@ -98,33 +109,50 @@ class LocalNotifications {
       await plugin.cancel(id: pending.id);
     }
     for (final plan in store.scheduledExpenses) {
-      final id = billNotificationId('scheduled:${plan.id}');
-      if (plan.paidAt != null) continue;
-      final due = plan.due;
-      final reminder = DateTime(due.year, due.month, due.day - 1, 9);
-      if (!reminder.isAfter(DateTime.now())) continue;
-      await plugin.zonedSchedule(
-        id: id,
-        title: '${plan.title} ödemesi yaklaşıyor',
-        body: '${money(plan.amount)} · Son gün ${dateLabel(due)}',
-        scheduledDate: tz.TZDateTime.from(reminder, tz.local),
-        notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
+      if (plan.paidAt != null || plan.income) continue;
+      await _scheduleCountdown(plan.id, plan.title, plan.amount, plan.due);
     }
     for (final rule in store.rules.where(
       (r) => r.isBill && !r.automaticPayment,
     )) {
-      final id = billNotificationId(rule.id);
       if (!rule.active) continue;
-      final due = rule.occurrence(store.firstUnpaidBillPeriod(rule));
-      if (rule.endDate != null && due.isAfter(day(rule.endDate!))) continue;
-      final reminder = DateTime(due.year, due.month, due.day - 1, 9);
+      var period = store.firstUnpaidBillPeriod(rule);
+      var scheduledPeriods = 0;
+      // Schedule a rolling year so reminders keep working while the app is closed.
+      final horizon = DateTime.now().add(const Duration(days: 365));
+      while (scheduledPeriods < 12) {
+        final due = rule.occurrence(period);
+        if (due.isAfter(horizon) ||
+            (rule.endDate != null && due.isAfter(day(rule.endDate!)))) {
+          break;
+        }
+        if (!store.entries.any((e) => e.id == '${rule.id}:$period')) {
+          await _scheduleCountdown(
+            '${rule.id}:$period',
+            rule.title,
+            rule.amount,
+            due,
+          );
+          if (!due.isBefore(day(DateTime.now()))) scheduledPeriods++;
+        }
+        period++;
+      }
+    }
+  }
+
+  Future<void> _scheduleCountdown(
+    String id,
+    String title,
+    int amount,
+    DateTime due,
+  ) async {
+    for (final daysLeft in [3, 2, 1]) {
+      final reminder = DateTime(due.year, due.month, due.day - daysLeft, 9);
       if (!reminder.isAfter(DateTime.now())) continue;
       await plugin.zonedSchedule(
-        id: id,
-        title: '${rule.title} ödemesi yaklaşıyor',
-        body: '${money(rule.amount)} · Son gün ${dateLabel(due)}',
+        id: billNotificationId('$id:$daysLeft'),
+        title: '$title ödemesine $daysLeft gün kaldı',
+        body: '${money(amount)} · Son gün ${dateLabel(due)}',
         scheduledDate: tz.TZDateTime.from(reminder, tz.local),
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

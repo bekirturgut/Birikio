@@ -131,7 +131,7 @@ void main() {
         title: 'Maaş kaydı',
         amount: 50000,
         income: true,
-        date: DateTime(2026, 9, 1),
+        date: DateTime.now(),
         category: 'Maaş',
       ),
       Entry(
@@ -139,7 +139,7 @@ void main() {
         title: 'Market kaydı',
         amount: 10000,
         income: false,
-        date: DateTime(2026, 9, 2),
+        date: DateTime.now(),
         category: 'Alışveriş',
       ),
       Entry(
@@ -147,7 +147,7 @@ void main() {
         title: 'Otobüs kaydı',
         amount: 2000,
         income: false,
-        date: DateTime(2026, 9, 3),
+        date: DateTime.now(),
         category: 'Ulaşım',
       ),
     ]);
@@ -208,7 +208,7 @@ void main() {
         title: 'Küçük gider',
         amount: 1000,
         income: false,
-        date: DateTime(2026, 9, 1),
+        date: DateTime.now(),
         category: 'Alışveriş',
       ),
       Entry(
@@ -216,7 +216,7 @@ void main() {
         title: 'Büyük gider',
         amount: 10000,
         income: false,
-        date: DateTime(2026, 9, 2),
+        date: DateTime.now(),
         category: 'Alışveriş',
       ),
     ]);

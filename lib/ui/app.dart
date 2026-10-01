@@ -25,6 +25,7 @@ import 'widget_picker.dart';
 import 'app_version.dart';
 import 'orbit_chart.dart';
 import 'annual_radar.dart';
+import 'money_input.dart';
 
 class BirikioApp extends StatelessWidget {
   final FinanceStore store;
@@ -131,6 +132,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int pageDirection = 1;
   String query = '';
   int entryFilter = 0; // 0: all, 1: income, 2: expense
+  DateTime entryMonth = DateTime(DateTime.now().year, DateTime.now().month);
   int walletFilter = 0; // 0: all, 1: savings, 2: budget
   String? categoryFilter;
   DateTimeRange? entryDateRange;
@@ -1839,6 +1841,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    inputFormatters: const [MoneyInputFormatter()],
                     decoration: const InputDecoration(
                       labelText: 'En az',
                       suffixText: '₺',
@@ -1853,6 +1856,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    inputFormatters: const [MoneyInputFormatter()],
                     decoration: const InputDecoration(
                       labelText: 'En çok',
                       suffixText: '₺',
@@ -1941,8 +1945,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
   List<Widget> entryPage() {
+    final monthStart = DateTime(entryMonth.year, entryMonth.month);
+    final nextMonth = DateTime(entryMonth.year, entryMonth.month + 1);
+    bool inMonth(DateTime date) =>
+        !date.isBefore(monthStart) && date.isBefore(nextMonth);
+    DateTime? occurrenceInMonth(RepeatRule rule) {
+      if (!rule.start.isBefore(nextMonth)) return null;
+      var index = 0;
+      while (rule.occurrence(index).isBefore(monthStart)) {
+        index++;
+      }
+      final due = rule.occurrence(index);
+      if (!inMonth(due) ||
+          (rule.endDate != null && due.isAfter(day(rule.endDate!)))) {
+        return null;
+      }
+      return due;
+    }
+
+    final monthEntries = s.sorted.where((e) => inMonth(e.date)).toList();
     final availableCategories =
-        s.sorted
+        monthEntries
             .where((e) => entryFilter == 0 || e.income == (entryFilter == 1))
             .map((e) => e.category)
             .toSet()
@@ -1952,7 +1975,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         !availableCategories.contains(categoryFilter)) {
       categoryFilter = null;
     }
-    final data = s.sorted
+    final data = monthEntries
         .where(
           (e) =>
               (entryFilter == 0 || e.income == (entryFilter == 1)) &&
@@ -1980,6 +2003,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         .where(
           (r) =>
               !r.isBill &&
+              occurrenceInMonth(r) != null &&
               (entryFilter == 0 || r.income == (entryFilter == 1)) &&
               (categoryFilter == null || r.category == categoryFilter),
         )
@@ -1988,14 +2012,58 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         .where(
           (r) =>
               r.isBill &&
+              occurrenceInMonth(r) != null &&
               entryFilter != 1 &&
               (categoryFilter == null || r.category == categoryFilter),
+        )
+        .toList();
+    final pendingIncome = s.scheduledExpenses
+        .where(
+          (p) =>
+              p.income &&
+              p.paidAt == null &&
+              inMonth(p.due) &&
+              entryFilter != 2,
         )
         .toList();
     final colors = financeColors(context);
     final darkTheme = Theme.of(context).brightness == Brightness.dark;
     final selectedColor = entryFilter == 2 ? colors.negative : colors.positive;
+    final monthIncome = monthEntries
+        .where((e) => e.income)
+        .fold<int>(0, (v, e) => v + e.amount);
+    final monthExpense = monthEntries
+        .where((e) => !e.income)
+        .fold<int>(0, (v, e) => v + e.amount);
     return [
+      Row(
+        children: [
+          IconButton(
+            tooltip: 'Önceki ay',
+            onPressed: () => setState(
+              () =>
+                  entryMonth = DateTime(entryMonth.year, entryMonth.month - 1),
+            ),
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          Expanded(
+            child: Text(
+              '${const ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][entryMonth.month - 1]} ${entryMonth.year}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sonraki ay',
+            onPressed: () => setState(
+              () =>
+                  entryMonth = DateTime(entryMonth.year, entryMonth.month + 1),
+            ),
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
       Container(
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
@@ -2112,7 +2180,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               children: [
                 Icon(Icons.auto_graph_rounded, size: 17, color: selectedColor),
                 const SizedBox(width: 8),
-                Eyebrow('TÜM ZAMANLAR'),
+                Eyebrow('SEÇİLİ AY'),
               ],
             ),
             const SizedBox(height: 18),
@@ -2122,7 +2190,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   Expanded(
                     child: _entrySummaryMetric(
                       'GELİR',
-                      s.income,
+                      monthIncome,
                       colors.positive,
                       Icons.south_west_rounded,
                     ),
@@ -2131,7 +2199,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   Expanded(
                     child: _entrySummaryMetric(
                       'GİDER',
-                      s.expense,
+                      monthExpense,
                       colors.negative,
                       Icons.north_east_rounded,
                     ),
@@ -2141,7 +2209,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             else
               _entrySummaryMetric(
                 entryFilter == 1 ? 'TOPLAM GELİR' : 'TOPLAM GİDER',
-                entryFilter == 1 ? s.income : s.expense,
+                entryFilter == 1 ? monthIncome : monthExpense,
                 selectedColor,
                 entryFilter == 1
                     ? Icons.south_west_rounded
@@ -2164,6 +2232,58 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (bills.isNotEmpty) ...[
         heading('Düzenli ödemeler'),
         ...bills.map(billCard),
+      ],
+      if (pendingIncome.isNotEmpty) ...[
+        heading('Beklenen gelirler'),
+        ...pendingIncome.map(
+          (p) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Panel(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_available_outlined),
+                title: Text(p.title),
+                subtitle: Text(
+                  '${dateLabel(p.due)} · Bakiyeye vadesinde eklenir',
+                ),
+                trailing: Text(
+                  money(p.amount),
+                  style: TextStyle(
+                    color: colors.positive,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                onTap: () async {
+                  final remove = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: Text(p.title),
+                      content: Text(
+                        '${money(p.amount)} · ${dateLabel(p.due)}\nBu gelir vade gününde bakiyeye eklenir.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(c, false),
+                          child: const Text('Kapat'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(c, true),
+                          child: const Text('Planı sil'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (remove == true) {
+                    await mutate(
+                      () =>
+                          s.scheduledExpenses.removeWhere((e) => e.id == p.id),
+                    );
+                  }
+                },
+              ),
+            ),
+          ),
+        ),
       ],
       if (rules.isNotEmpty) ...[
         heading('Otomatik kayıtlar'),
@@ -2198,7 +2318,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                               ? 'Tamamlandı'
                               : !r.active
                               ? 'Durduruldu'
-                              : 'Sonraki: ${dateLabel(r.occurrence(r.cursor))}'}${r.endDate == null ? '' : ' · Bitiş: ${dateLabel(r.endDate!)}'}',
+                              : 'Bu ay: ${dateLabel(occurrenceInMonth(r)!)}'}${r.endDate == null ? '' : ' · Bitiş: ${dateLabel(r.endDate!)}'}',
                           style: TextStyle(
                             fontSize: 10,
                             color: Theme.of(
@@ -2209,7 +2329,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-                  TextButton(
+                  IconButton(
+                    tooltip: r.active
+                        ? 'Tekrarlamayı durdur'
+                        : 'Tekrarlamayı sürdür',
+                    icon: Icon(
+                      r.active
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_circle_outline_rounded,
+                    ),
                     onPressed: () async {
                       if (!r.active) {
                         await mutate(() => r.active = true);
@@ -2236,10 +2364,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                       );
                       if (stop == true) await mutate(() => r.active = false);
                     },
-                    child: Text(
-                      r.active ? 'Durdur' : 'Sürdür',
-                      style: TextStyle(fontSize: 11),
-                    ),
                   ),
                   IconButton(
                     tooltip: 'Bitiş tarihini düzenle',
@@ -2557,6 +2681,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: const [MoneyInputFormatter()],
               decoration: const InputDecoration(
                 labelText: 'Tutar',
                 suffixText: '₺',
@@ -3422,13 +3547,33 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   final granted = await LocalNotifications.instance
                       .requestPermission();
                   if (!granted) {
-                    toast(
-                      'Bildirim izni verilmedi. Uygulama içi uyarılar çalışır.',
+                    if (!context.mounted) return;
+                    final open = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('Bildirim izni gerekli'),
+                        content: const Text(
+                          'Android bildirimleri kapalı görünüyor. Uygulama bildirim ayarlarını açıp izni verebilirsin.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('Kapat'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text('Ayarları aç'),
+                          ),
+                        ],
+                      ),
                     );
+                    if (open == true) {
+                      await LocalNotifications.instance.openSettings();
+                    }
                     return;
                   }
-                } catch (_) {
-                  toast('Bildirim izni alınamadı.');
+                } catch (error) {
+                  toast('Bildirim kurulamadı: $error');
                   return;
                 }
               }

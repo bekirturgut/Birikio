@@ -9,6 +9,7 @@ import 'forms.dart';
 import 'money_journey.dart';
 import 'annual_radar.dart';
 import 'orbit_chart.dart';
+import 'money_input.dart';
 
 class BudgetPage extends StatefulWidget {
   final FinanceStore store;
@@ -302,6 +303,7 @@ class _BudgetPageState extends State<BudgetPage> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: const [MoneyInputFormatter()],
               decoration: InputDecoration(
                 labelText: 'Aylık limit',
                 suffixText: '₺',
@@ -397,6 +399,7 @@ class _BudgetPageState extends State<BudgetPage> {
             TextField(
               controller: controller,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: const [MoneyInputFormatter()],
               decoration: InputDecoration(
                 labelText: 'Harcama limiti',
                 suffixText: '₺',

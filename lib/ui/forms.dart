@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../data/store.dart';
 import 'widgets.dart';
 import 'palette.dart';
+import 'money_input.dart';
 
 Future<T?> sheet<T>(BuildContext context, Widget child) =>
     showModalBottomSheet<T>(
@@ -178,9 +179,7 @@ class _EntryFormState extends State<EntryForm> {
         );
         if (widget.entry != null) {
           widget.store.updateRecurringEntry(widget.entry!, e, scope);
-        } else if (frequency == 0 &&
-            !widget.income &&
-            date.isAfter(day(DateTime.now()))) {
+        } else if (frequency == 0 && date.isAfter(day(DateTime.now()))) {
           widget.store.scheduledExpenses.add(
             ScheduledExpense(
               id: uid(),
@@ -189,6 +188,7 @@ class _EntryFormState extends State<EntryForm> {
               category: e.category,
               due: date,
               note: e.note,
+              income: widget.income,
             ),
           );
         } else if (frequency == 0) {
@@ -243,6 +243,7 @@ class _EntryFormState extends State<EntryForm> {
             controller: amount,
             autofocus: false,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [MoneyInputFormatter()],
             decoration: const InputDecoration(
               labelText: 'Tutar',
               suffixText: '₺',
@@ -382,9 +383,6 @@ class _EntryFormState extends State<EntryForm> {
               onChanged: (v) => setState(() {
                 frequency = v!;
                 if (isBill && frequency == 0) isBill = false;
-                if (frequency == 0 && date.isAfter(DateTime.now())) {
-                  date = day(DateTime.now());
-                }
               }),
             ),
             if (frequency > 0)
@@ -645,6 +643,7 @@ class _GoalFormState extends State<GoalForm> {
         TextFormField(
           controller: amount,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [MoneyInputFormatter()],
           decoration: const InputDecoration(
             labelText: 'Hedef tutar',
             suffixText: '₺',
@@ -684,6 +683,7 @@ class _GoalFormState extends State<GoalForm> {
         TextFormField(
           controller: monthly,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [MoneyInputFormatter()],
           decoration: const InputDecoration(
             labelText: 'Planlanan aylık birikim',
             helperText: 'Tahmini bitiş ve aylık takip için kullanılır',
@@ -954,6 +954,7 @@ class _TransferFormState extends State<TransferForm> {
       TextField(
         controller: amount,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: const [MoneyInputFormatter()],
         decoration: InputDecoration(
           labelText: 'Tutar',
           suffixText: '₺',

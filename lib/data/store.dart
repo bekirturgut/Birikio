@@ -53,6 +53,8 @@ int? parseMoney(String input) {
   var s = input.trim().replaceAll('₺', '').replaceAll(' ', '');
   if (s.contains(',')) {
     s = s.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(s)) {
+    s = s.replaceAll('.', '');
   }
   if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(s)) return null;
   final v = double.tryParse(s);
@@ -312,6 +314,7 @@ class ScheduledExpense {
   int amount;
   DateTime due;
   DateTime? paidAt;
+  bool income;
   ScheduledExpense({
     required this.id,
     required this.title,
@@ -320,6 +323,7 @@ class ScheduledExpense {
     required this.due,
     this.note = '',
     this.paidAt,
+    this.income = false,
   });
   Map<String, dynamic> json() => {
     'id': id,
@@ -329,6 +333,7 @@ class ScheduledExpense {
     'due': due.toIso8601String(),
     'note': note,
     'paidAt': paidAt?.toIso8601String(),
+    'income': income,
   };
   factory ScheduledExpense.read(Map<String, dynamic> j) => ScheduledExpense(
     id: j['id'],
@@ -338,6 +343,7 @@ class ScheduledExpense {
     due: DateTime.parse(j['due']),
     note: j['note'] ?? '',
     paidAt: j['paidAt'] == null ? null : DateTime.parse(j['paidAt']),
+    income: j['income'] == true,
   );
 }
 
@@ -456,11 +462,11 @@ class FinanceStore extends ChangeNotifier {
       for (final plan in annualPlans.where((p) => p.category == oldName)) {
         plan.category = value;
       }
-      for (final plan in scheduledExpenses.where(
-        (p) => p.category == oldName,
-      )) {
-        plan.category = value;
-      }
+    }
+    for (final plan in scheduledExpenses.where(
+      (p) => p.income == income && p.category == oldName,
+    )) {
+      plan.category = value;
     }
     if (!income) {
       for (final monthly in categoryBudgets.values) {
@@ -619,7 +625,9 @@ class FinanceStore extends ChangeNotifier {
         ...nextEntries.where((e) => e.income == income).map((e) => e.category),
         ...nextRules.where((r) => r.income == income).map((r) => r.category),
         if (!income) ...nextAnnualPlans.map((p) => p.category),
-        if (!income) ...nextScheduledExpenses.map((p) => p.category),
+        ...nextScheduledExpenses
+            .where((p) => p.income == income)
+            .map((p) => p.category),
         if (!income)
           ...nextCategoryBudgets.values.expand((monthly) => monthly.keys),
       };
@@ -690,6 +698,25 @@ class FinanceStore extends ChangeNotifier {
   }
 
   void materialize(DateTime now) {
+    for (final plan in scheduledExpenses.where(
+      (p) => p.income && p.paidAt == null && !p.due.isAfter(day(now)),
+    )) {
+      final id = 'scheduled:${plan.id}';
+      if (!entries.any((e) => e.id == id)) {
+        entries.add(
+          Entry(
+            id: id,
+            title: plan.title,
+            amount: plan.amount,
+            income: true,
+            date: plan.due,
+            category: plan.category,
+            note: plan.note,
+          ),
+        );
+      }
+      plan.paidAt = plan.due;
+    }
     for (final r in rules.where(
       (r) => r.active && (!r.isBill || r.automaticPayment),
     )) {
@@ -719,14 +746,17 @@ class FinanceStore extends ChangeNotifier {
   Future<void> catchUp({DateTime? now}) async {
     final today = now ?? DateTime.now();
     if (!busy &&
-        rules.any(
-          (r) =>
-              r.active &&
-              (!r.isBill || r.automaticPayment) &&
-              !r.occurrence(r.cursor).isAfter(day(today)) &&
-              (r.endDate == null ||
-                  !r.occurrence(r.cursor).isAfter(day(r.endDate!))),
-        )) {
+        (scheduledExpenses.any(
+              (p) => p.income && p.paidAt == null && !p.due.isAfter(day(today)),
+            ) ||
+            rules.any(
+              (r) =>
+                  r.active &&
+                  (!r.isBill || r.automaticPayment) &&
+                  !r.occurrence(r.cursor).isAfter(day(today)) &&
+                  (r.endDate == null ||
+                      !r.occurrence(r.cursor).isAfter(day(r.endDate!))),
+            ))) {
       await change(() => materialize(today));
     }
   }

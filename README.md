@@ -36,7 +36,7 @@ Anasayfada kullanılabilir bakiyeyi, bu ayın gelir ve giderini ve birikim hedef
 
 ### 2. Gelir ve giderlerini kaydet
 
-Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında kayıtları birlikte veya türüne göre görebilir; kategori, tarih, tutar ve tekrar durumuyla filtreleyebilirsin.
+Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında oklarla ay değiştirirsin: özet, kayıtlar ve düzenli kayıtlar yalnızca seçili ayı gösterir. Kategori, tarih, tutar ve tekrar durumuyla ayrıca filtreleyebilirsin. Tutar yazarken binlik gruplar otomatik noktayla ayrılır.
 
 <table>
   <tr>
@@ -48,6 +48,8 @@ Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını aç
 ### 3. İleri tarihli gideri veya düzenli ödemeyi planla
 
 Gider formunda ileri tarih seçersen tek seferlik kayıt **bekleyen ödeme** olur ve radara eklenir. **Düzenli ödeme** seçeneğiyle sıklığı ve isteğe bağlı bitiş tarihini belirleyebilirsin. Otomatik seçilen düzenli ödemeler vadesinde gider kaydı oluşturur; bu, bankadan tahsilat doğrulaması değildir.
+
+İleri tarihli tek seferlik gelir **Beklenen gelirler** bölümünde görünür. Vadesine kadar kullanılabilir bakiyeye katılmaz; vade günü kendi tarihiyle bir kez gelir kaydına dönüşür.
 
 <table>
   <tr>
@@ -91,7 +93,7 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
 | Ekran | Neler yapabilirsin? |
 | --- | --- |
 | **Anasayfa** | Hedefini, kullanılabilir bakiyeni, aylık özeti, finans yönetimi puanını ve geciken ödemeleri gör; kartları açıp kapat ve sıralarını düzenle. |
-| **Gelir & Gider** | İşlemleri filtrele; ileri tarihli giderleri, düzenli ödemeleri ve Yıllık Radar'ı aynı akışta yönet. |
+| **Gelir & Gider** | Ay ay gelir, gider ve düzenli kayıtları gör; beklenen gelirleri, ileri tarihli giderleri ve Yıllık Radar'ı aynı akışta yönet. |
 | **Cüzdan** | Birikim hedeflerini tarih ve aylık katkıyla planla; genel ve kategori bütçelerini izle. |
 | **Analiz** | Günlük, haftalık, aylık veya yıllık dönemi seç; gelir/gider karşılaştırmasını, harcama içgörülerini, kategori dağılımını, Paranın Yolculuğu akışını ve Yıllık Masraf Radarı'nı gör. |
 | **Profil** | Kategorileri ve yerel bildirimleri yönet; JSON yedek oluştur/geri yükle ve Türkçe CSV aktar. |
@@ -100,7 +102,8 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
 
 - **Tekrarlayan kayıtlar:** günlük, haftalık, aylık veya yıllık gelir ve giderler; başlangıç tarihi, isteğe bağlı bitiş tarihi, durdurma ve geçmiş kayıtları koruyarak seriyi silme seçenekleri.
 - **Faturalar:** otomatik seçilenler vadede gider olarak yazılır; manuel seçilenler yalnızca ödendi işaretlenince bakiyeyi etkiler. Gerçek banka tahsilatı doğrulanmaz.
-- **Bildirimler:** izin verilirse bütçe kullanım eşikleri, yaklaşan manuel düzenli ödemeler ve ileri tarihli tek seferlik giderler için cihaz içi hatırlatmalar planlanır. Teslim zamanı işletim sistemi ve pil kısıtlarına bağlıdır.
+- **Bildirimler:** uygulama Android'in geçerli izin durumunu denetler; izin kapalıysa sistem ayarlarına götürür. Bütçe eşiklerine ek olarak manuel düzenli ödeme ve ileri tarihli tek seferlik giderler için vadeye 3, 2 ve 1 gün kala yerel hatırlatmalar planlanır. Teslim zamanı işletim sistemi ve pil kısıtlarına bağlıdır.
+- **Arka plan:** Android WorkManager yaklaşık altı saatte bir gecikmiş otomatik kayıtları tamamlar ve hatırlatmaları yeniler. Android görevleri erteleyebilir; uygulama açıldığında kontrol ayrıca yapılır.
 - **Android widget:** 1×1 hedef yüzdesi, 2×1 bakiye, 2×2 hedef, 2×3 bütçe ve 3×3 finansal özet seçenekleri vardır. Ayarlardaki görsel seçim penceresinde boyut ve içerik önizlenir. Bakiye gizlilik tercihiyle kapatılabilir; uygulama verisi değiştiğinde yenilenir.
 - **Esnek formlar:** gelir kaynağı, gider adı, hedef adı ve not isteğe bağlıdır. İsimsiz kayıtlara uygun bir ad atanır.
 - **Geri tuşu:** açık pencereyi kapatır, diğer sekmelerden ana sayfaya döner; ana sayfada uygulamadan çıkmaz.
@@ -148,6 +151,8 @@ flutter build apk --debug
 
 APK, `build/app/outputs/flutter-apk/app-debug.apk` konumunda oluşur. Bu paket geliştirme/test içindir; mağaza yayını için dağıtım imzası ve platform ayarları ayrıca hazırlanmalıdır.
 
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Bu sürüm `1.0.1+2` değerini kullanır. Geliştirme için kullanılan yerel debug anahtarını güvenli sakla; anahtar kaybolursa aynı kurulum üzerine imzalı güncelleme üretilemez.
+
 > Android debug APK derlenmiştir. README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
 ## Veriler ve hesaplama
@@ -173,10 +178,11 @@ Kullanılabilir bakiye = Toplam gelir − Toplam gider − Ayrılmış net birik
 - Aylık bütçe limiti, bakiyeyi değiştirmeyen bir harcama planıdır.
 - Birikim hedef tutarının altına düşerse başarı kartı tekrar ilerleme görünümüne döner.
 - İleri tarihli tek seferlik giderler vadesine kadar bekleyen ödeme olarak tutulur; ödendi işaretlenince bakiyeye yansır.
+- İleri tarihli tek seferlik gelirler de vadesine kadar bakiyeye girmez; vadesinde otomatik olarak gelir kaydı oluşturulur.
 
 ### Otomatik kayıtlar ne zaman eklenir?
 
-Tekrarlar açılışta, uygulama ön plana geldiğinde ve açıkken dakikada bir kontrol edilir. Uygulama kapalıyken arka plan servisi çalışmaz; kaçırılan dönemler bir sonraki açılışta kendi tarihleriyle tamamlanır.
+Tekrarlar açılışta, uygulama ön plana geldiğinde, açıkken dakikada bir ve Android'in izin verdiği periyodik arka plan görevinde kontrol edilir. Android arka plan görevini geciktirebilir; kaçırılan dönemler en geç sonraki açılışta kendi tarihleriyle tamamlanır.
 
 Aynı dönem iki kez eklenmez; silinmiş otomatik kayıt yeniden oluşturulmaz. Aylık tekrar başlangıç gününe bağlı kalır: **31 Ocak → 28/29 Şubat → 31 Mart**.
 

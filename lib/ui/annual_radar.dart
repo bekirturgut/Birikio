@@ -5,6 +5,7 @@ import '../data/store.dart';
 import 'forms.dart';
 import 'palette.dart';
 import 'widgets.dart';
+import 'money_input.dart';
 
 class AnnualRadar extends StatefulWidget {
   final FinanceStore store;
@@ -28,6 +29,7 @@ class _AnnualRadarState extends State<AnnualRadar> {
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [MoneyInputFormatter()],
           decoration: const InputDecoration(
             labelText: 'Ödenen tutar',
             suffixText: '₺',
@@ -117,6 +119,7 @@ class _AnnualRadarState extends State<AnnualRadar> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: const [MoneyInputFormatter()],
               decoration: const InputDecoration(labelText: 'Tutar'),
             ),
             ListTile(
@@ -707,6 +710,7 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
         TextFormField(
           controller: amount,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [MoneyInputFormatter()],
           decoration: const InputDecoration(
             labelText: 'Tahmini tutar',
             suffixText: '₺',

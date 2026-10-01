@@ -37,7 +37,7 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
 
   final items = <RadarExpense>[
     for (final expense in store.scheduledExpenses)
-      if (expense.due.year == year)
+      if (!expense.income && expense.due.year == year)
         RadarExpense(
           id: expense.id,
           title: expense.title,
