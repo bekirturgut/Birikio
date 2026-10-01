@@ -94,13 +94,31 @@ class LocalNotifications {
           1000000000;
 
   Future<void> _scheduleBills(FinanceStore store) async {
+    for (final pending in await plugin.pendingNotificationRequests()) {
+      await plugin.cancel(id: pending.id);
+    }
+    for (final plan in store.scheduledExpenses) {
+      final id = billNotificationId('scheduled:${plan.id}');
+      if (plan.paidAt != null) continue;
+      final due = plan.due;
+      final reminder = DateTime(due.year, due.month, due.day - 1, 9);
+      if (!reminder.isAfter(DateTime.now())) continue;
+      await plugin.zonedSchedule(
+        id: id,
+        title: '${plan.title} ödemesi yaklaşıyor',
+        body: '${money(plan.amount)} · Son gün ${dateLabel(due)}',
+        scheduledDate: tz.TZDateTime.from(reminder, tz.local),
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
     for (final rule in store.rules.where(
       (r) => r.isBill && !r.automaticPayment,
     )) {
       final id = billNotificationId(rule.id);
-      await plugin.cancel(id: id);
       if (!rule.active) continue;
       final due = rule.occurrence(store.firstUnpaidBillPeriod(rule));
+      if (rule.endDate != null && due.isAfter(day(rule.endDate!))) continue;
       final reminder = DateTime(due.year, due.month, due.day - 1, 9);
       if (!reminder.isAfter(DateTime.now())) continue;
       await plugin.zonedSchedule(

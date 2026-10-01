@@ -105,12 +105,14 @@ class RepeatRule {
   bool isBill, automaticPayment;
   Map<int, int> dueDayChanges;
   DateTime start;
+  DateTime? endDate;
   RepeatRule({
     required this.id,
     required this.title,
     required this.amount,
     required this.income,
     required this.start,
+    this.endDate,
     required this.category,
     required this.frequency,
     this.note = '',
@@ -149,6 +151,7 @@ class RepeatRule {
     'amount': amount,
     'income': income,
     'start': start.toIso8601String(),
+    'endDate': endDate?.toIso8601String(),
     'category': category,
     'frequency': frequency,
     'note': note,
@@ -164,6 +167,7 @@ class RepeatRule {
     amount: j['amount'],
     income: j['income'],
     start: DateTime.parse(j['start']),
+    endDate: j['endDate'] == null ? null : DateTime.parse(j['endDate']),
     category: j['category'],
     frequency: j['frequency'],
     note: j['note'],
@@ -268,6 +272,7 @@ class Transfer {
 class AnnualPlan {
   String id, title, category;
   int amount, month, dueDay, startYear;
+  DateTime? endDate;
   AnnualPlan({
     required this.id,
     required this.title,
@@ -276,6 +281,7 @@ class AnnualPlan {
     required this.month,
     required this.dueDay,
     required this.startYear,
+    this.endDate,
   });
   DateTime dueIn(int year) =>
       DateTime(year, month, min(dueDay, DateTime(year, month + 1, 0).day));
@@ -287,6 +293,7 @@ class AnnualPlan {
     'month': month,
     'dueDay': dueDay,
     'startYear': startYear,
+    'endDate': endDate?.toIso8601String(),
   };
   factory AnnualPlan.read(Map<String, dynamic> j) => AnnualPlan(
     id: j['id'],
@@ -296,6 +303,41 @@ class AnnualPlan {
     month: j['month'],
     dueDay: j['dueDay'],
     startYear: j['startYear'],
+    endDate: j['endDate'] == null ? null : DateTime.parse(j['endDate']),
+  );
+}
+
+class ScheduledExpense {
+  String id, title, category, note;
+  int amount;
+  DateTime due;
+  DateTime? paidAt;
+  ScheduledExpense({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.due,
+    this.note = '',
+    this.paidAt,
+  });
+  Map<String, dynamic> json() => {
+    'id': id,
+    'title': title,
+    'category': category,
+    'amount': amount,
+    'due': due.toIso8601String(),
+    'note': note,
+    'paidAt': paidAt?.toIso8601String(),
+  };
+  factory ScheduledExpense.read(Map<String, dynamic> j) => ScheduledExpense(
+    id: j['id'],
+    title: j['title'],
+    category: j['category'],
+    amount: j['amount'],
+    due: DateTime.parse(j['due']),
+    note: j['note'] ?? '',
+    paidAt: j['paidAt'] == null ? null : DateTime.parse(j['paidAt']),
   );
 }
 
@@ -330,6 +372,7 @@ class FinanceStore extends ChangeNotifier {
   List<Goal> goals = [];
   List<Transfer> transfers = [];
   List<AnnualPlan> annualPlans = [];
+  List<ScheduledExpense> scheduledExpenses = [];
   Map<String, int> budgets = {};
   Map<String, Map<String, int>> categoryBudgets = {};
   bool notificationsEnabled = false;
@@ -411,6 +454,11 @@ class FinanceStore extends ChangeNotifier {
     }
     if (!income) {
       for (final plan in annualPlans.where((p) => p.category == oldName)) {
+        plan.category = value;
+      }
+      for (final plan in scheduledExpenses.where(
+        (p) => p.category == oldName,
+      )) {
         plan.category = value;
       }
     }
@@ -496,6 +544,7 @@ class FinanceStore extends ChangeNotifier {
     'goals': goals.map((e) => e.json()).toList(),
     'transfers': transfers.map((e) => e.json()).toList(),
     'annualPlans': annualPlans.map((e) => e.json()).toList(),
+    'scheduledExpenses': scheduledExpenses.map((e) => e.json()).toList(),
     'budgets': budgets,
     'categoryBudgets': categoryBudgets,
     'notificationsEnabled': notificationsEnabled,
@@ -529,6 +578,9 @@ class FinanceStore extends ChangeNotifier {
         .toList();
     final nextAnnualPlans = (document['annualPlans'] as List)
         .map((e) => AnnualPlan.read(Map<String, dynamic>.from(e)))
+        .toList();
+    final nextScheduledExpenses = (document['scheduledExpenses'] as List)
+        .map((e) => ScheduledExpense.read(Map<String, dynamic>.from(e)))
         .toList();
     final nextBudgets = Map<String, int>.from(document['budgets']);
     final nextCategoryBudgets = (document['categoryBudgets'] as Map).map(
@@ -567,6 +619,7 @@ class FinanceStore extends ChangeNotifier {
         ...nextEntries.where((e) => e.income == income).map((e) => e.category),
         ...nextRules.where((r) => r.income == income).map((r) => r.category),
         if (!income) ...nextAnnualPlans.map((p) => p.category),
+        if (!income) ...nextScheduledExpenses.map((p) => p.category),
         if (!income)
           ...nextCategoryBudgets.values.expand((monthly) => monthly.keys),
       };
@@ -595,6 +648,7 @@ class FinanceStore extends ChangeNotifier {
     goals = nextGoals;
     transfers = nextTransfers;
     annualPlans = nextAnnualPlans;
+    scheduledExpenses = nextScheduledExpenses;
     budgets = nextBudgets;
     categoryBudgets = nextCategoryBudgets;
     notificationsEnabled = nextNotificationsEnabled;
@@ -641,6 +695,7 @@ class FinanceStore extends ChangeNotifier {
     )) {
       while (!r.occurrence(r.cursor).isAfter(day(now))) {
         final date = r.occurrence(r.cursor);
+        if (r.endDate != null && date.isAfter(day(r.endDate!))) break;
         final id = '${r.id}:${r.cursor}';
         if (!entries.any((e) => e.id == id)) {
           entries.add(
@@ -668,7 +723,9 @@ class FinanceStore extends ChangeNotifier {
           (r) =>
               r.active &&
               (!r.isBill || r.automaticPayment) &&
-              !r.occurrence(r.cursor).isAfter(day(today)),
+              !r.occurrence(r.cursor).isAfter(day(today)) &&
+              (r.endDate == null ||
+                  !r.occurrence(r.cursor).isAfter(day(r.endDate!))),
         )) {
       await change(() => materialize(today));
     }
@@ -682,33 +739,93 @@ class FinanceStore extends ChangeNotifier {
     return index;
   }
 
-  Future<void> markBillPaid(RepeatRule rule, int period, {DateTime? paidAt}) =>
-      change(() {
-        if (!rule.isBill || rule.automaticPayment || period < 0) {
-          throw StateError('Bu ödeme manuel fatura değil.');
-        }
-        final due = rule.occurrence(period);
-        final paymentDate = paidAt ?? DateTime.now();
-        if (due.isAfter(day(paymentDate))) {
-          throw StateError('Henüz vadesi gelmedi.');
-        }
-        final id = '${rule.id}:$period';
-        if (entries.any((entry) => entry.id == id)) {
-          throw StateError('Bu fatura zaten ödendi.');
-        }
-        entries.add(
-          Entry(
-            id: id,
-            title: rule.title,
-            amount: rule.amount,
-            income: false,
-            date: day(paymentDate),
-            category: rule.category,
-            note: rule.note,
-            rule: rule.id,
-          ),
-        );
-      });
+  Future<void> markBillPaid(
+    RepeatRule rule,
+    int period, {
+    DateTime? paidAt,
+    int? amount,
+  }) => change(() {
+    if (!rule.isBill || rule.automaticPayment || period < 0) {
+      throw StateError('Bu ödeme manuel fatura değil.');
+    }
+    if (amount != null && amount <= 0) throw ArgumentError.value(amount);
+    final due = rule.occurrence(period);
+    if (rule.endDate != null && due.isAfter(day(rule.endDate!))) {
+      throw StateError('Bu ödeme sona erdi.');
+    }
+    final paymentDate = paidAt ?? DateTime.now();
+    final id = '${rule.id}:$period';
+    if (entries.any((entry) => entry.id == id)) {
+      throw StateError('Bu fatura zaten ödendi.');
+    }
+    entries.add(
+      Entry(
+        id: id,
+        title: rule.title,
+        amount: amount ?? rule.amount,
+        income: false,
+        date: day(paymentDate),
+        category: rule.category,
+        note: rule.note,
+        rule: rule.id,
+      ),
+    );
+  });
+
+  Future<void> markScheduledExpensePaid(
+    ScheduledExpense plan, {
+    DateTime? paidAt,
+    int? amount,
+  }) => change(() {
+    if (plan.paidAt != null) throw StateError('Ödeme zaten kaydedildi.');
+    final date = day(paidAt ?? DateTime.now());
+    if (amount != null && amount <= 0) throw ArgumentError.value(amount);
+    plan.paidAt = date;
+    entries.add(
+      Entry(
+        id: 'scheduled:${plan.id}',
+        title: plan.title,
+        amount: amount ?? plan.amount,
+        income: false,
+        date: date,
+        category: plan.category,
+        note: plan.note,
+      ),
+    );
+  });
+
+  Future<void> markAnnualPlanPaid(
+    AnnualPlan plan,
+    int year, {
+    DateTime? paidAt,
+    int? amount,
+  }) => change(() {
+    if (amount != null && amount <= 0) throw ArgumentError.value(amount);
+    final id = 'annual:${plan.id}:$year';
+    if (entries.any((entry) => entry.id == id)) {
+      throw StateError('Ödeme zaten kaydedildi.');
+    }
+    entries.add(
+      Entry(
+        id: id,
+        title: plan.title,
+        amount: amount ?? plan.amount,
+        income: false,
+        date: day(paidAt ?? DateTime.now()),
+        category: plan.category,
+      ),
+    );
+  });
+
+  void removeEntry(String id) {
+    entries.removeWhere((entry) => entry.id == id);
+    if (id.startsWith('scheduled:')) {
+      final planId = id.substring('scheduled:'.length);
+      for (final plan in scheduledExpenses.where((p) => p.id == planId)) {
+        plan.paidAt = null;
+      }
+    }
+  }
 
   Future<void> move(Goal goal, int amount) => change(() {
     if (amount > 0 && amount > balance) {
@@ -724,6 +841,8 @@ class FinanceStore extends ChangeNotifier {
   Future<void> clear() => change(() {
     entries.clear();
     rules.clear();
+    scheduledExpenses.clear();
+    annualPlans.clear();
     goals.clear();
     transfers.clear();
     budgets.clear();

@@ -17,6 +17,142 @@ class _AnnualRadarState extends State<AnnualRadar> {
   int year = DateTime.now().year;
   int selectedMonth = DateTime.now().month;
 
+  Future<void> recordPayment(RadarExpense item) async {
+    final controller = TextEditingController(
+      text: (item.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final amount = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${item.title} ödendi'),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Ödenen tutar',
+            suffixText: '₺',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final parsed = parseMoney(controller.text);
+              if (parsed != null) Navigator.pop(dialogContext, parsed);
+            },
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (amount == null) return;
+    try {
+      if (item.scheduled) {
+        final expense = widget.store.scheduledExpenses.firstWhere(
+          (e) => e.id == item.id,
+        );
+        await widget.store.markScheduledExpensePaid(expense, amount: amount);
+      } else if (item.fromRule) {
+        final rule = widget.store.rules.firstWhere((r) => r.id == item.id);
+        await widget.store.markBillPaid(rule, item.period!, amount: amount);
+      } else {
+        final plan = widget.store.annualPlans.firstWhere(
+          (p) => p.id == item.id,
+        );
+        await widget.store.markAnnualPlanPaid(plan, year, amount: amount);
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ödeme kaydedilemedi.')));
+      }
+    }
+  }
+
+  Future<void> addExpense() async {
+    final scheduledCount = widget.store.scheduledExpenses.length;
+    final ruleCount = widget.store.rules.length;
+    final saved = await sheet<bool>(
+      context,
+      EntryForm(store: widget.store, income: false),
+    );
+    if (saved == true && mounted) {
+      final due = widget.store.scheduledExpenses.length > scheduledCount
+          ? widget.store.scheduledExpenses.last.due
+          : widget.store.rules.length > ruleCount
+          ? widget.store.rules.last.start
+          : DateTime.now();
+      setState(() {
+        year = due.year;
+        selectedMonth = due.month;
+      });
+    }
+  }
+
+  Future<void> editScheduled(ScheduledExpense expense) async {
+    final title = TextEditingController(text: expense.title);
+    final amount = TextEditingController(
+      text: (expense.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
+    );
+    var due = expense.due;
+    await sheet<bool>(
+      context,
+      StatefulBuilder(
+        builder: (dialogContext, update) => FormShell(
+          title: 'Bekleyen gideri düzenle',
+          subtitle: 'Vadesi gelmeden tutarı ve tarihi değiştirebilirsin.',
+          children: [
+            TextField(
+              controller: title,
+              decoration: const InputDecoration(labelText: 'Ad'),
+            ),
+            TextField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Tutar'),
+            ),
+            ListTile(
+              title: Text(dateLabel(due)),
+              subtitle: const Text('Vade tarihi'),
+              onTap: () async {
+                final chosen = await showDatePicker(
+                  context: dialogContext,
+                  initialDate: due,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (chosen != null) update(() => due = chosen);
+              },
+            ),
+            FilledButton(
+              onPressed: () async {
+                final cents = parseMoney(amount.text);
+                if (title.text.trim().isEmpty || cents == null) return;
+                await widget.store.change(() {
+                  expense.title = title.text.trim();
+                  expense.amount = cents;
+                  expense.due = due;
+                });
+                if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+    title.dispose();
+    amount.dispose();
+  }
+
   Future<void> edit([AnnualPlan? plan]) async {
     final saved = await sheet<bool>(
       context,
@@ -73,6 +209,9 @@ class _AnnualRadarState extends State<AnnualRadar> {
           .fold(0, (sum, item) => sum + item.amount),
     );
     final annualTotal = monthly.fold(0, (a, b) => a + b);
+    final paidTotal = items
+        .where((item) => item.paid)
+        .fold<int>(0, (sum, item) => sum + (item.paidAmount ?? item.amount));
     final monthItems = items
         .where((item) => item.due.month == selectedMonth)
         .toList();
@@ -92,11 +231,15 @@ class _AnnualRadarState extends State<AnnualRadar> {
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Planla'),
         ),
+        TextButton(onPressed: addExpense, child: const Text('Gider ekle')),
       ],
     );
-    if (widget.store.annualPlans.isEmpty &&
+    if (widget.store.scheduledExpenses.isEmpty &&
+        widget.store.annualPlans.isEmpty &&
         !widget.store.rules.any(
-          (r) => r.active && !r.income && r.frequency == 4,
+          (r) =>
+              !r.income &&
+              (r.active || widget.store.entries.any((e) => e.rule == r.id)),
         )) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -209,7 +352,7 @@ class _AnnualRadarState extends State<AnnualRadar> {
                 ),
               ),
               Text(
-                'Bu yıldaki planlı yıllık masraf toplamı',
+                'Planlanan ${money(annualTotal)} · Ödenen ${money(paidTotal)} · Bekleyen ${money(items.where((e) => !e.paid).fold<int>(0, (sum, e) => sum + e.amount))}',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
@@ -401,7 +544,11 @@ class _AnnualRadarState extends State<AnnualRadar> {
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                           Text(
-                            '${dateLabel(item.due)} · ${item.category}${item.fromRule ? ' · düzenli kayıt' : ''}',
+                            '${dateLabel(item.due)} · ${item.category}${item.fromRule ? ' · düzenli' : ''} · ${item.paid
+                                ? 'Ödendi'
+                                : item.due.isBefore(day(DateTime.now()))
+                                ? 'Gecikti'
+                                : 'Bekliyor'}',
                             style: TextStyle(
                               color: Theme.of(
                                 context,
@@ -416,12 +563,24 @@ class _AnnualRadarState extends State<AnnualRadar> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          money(item.amount),
+                          money(item.paidAmount ?? item.amount),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (!item.paid &&
+                            (!item.fromRule ||
+                                widget.store.rules.any(
+                                  (r) =>
+                                      r.id == item.id &&
+                                      r.isBill &&
+                                      !r.automaticPayment,
+                                )))
+                          TextButton(
+                            onPressed: () => recordPayment(item),
+                            child: const Text('Ödendi'),
+                          ),
                         if (!item.fromRule)
                           PopupMenuButton<String>(
                             tooltip: 'Plan seçenekleri',
@@ -430,7 +589,29 @@ class _AnnualRadarState extends State<AnnualRadar> {
                               Icons.more_horiz_rounded,
                               size: 20,
                             ),
-                            onSelected: (action) {
+                            onSelected: (action) async {
+                              if (item.scheduled) {
+                                if (action == 'edit') {
+                                  final expense = widget.store.scheduledExpenses
+                                      .where((e) => e.id == item.id)
+                                      .firstOrNull;
+                                  if (expense != null) editScheduled(expense);
+                                }
+                                if (action == 'delete') {
+                                  if (!await confirm(
+                                    context,
+                                    'Plan silinsin mi?',
+                                    'Plan radardan kaldırılır. Gerçekleşmiş gider kayıtları korunur.',
+                                  )) {
+                                    return;
+                                  }
+                                  await widget.store.change(
+                                    () => widget.store.scheduledExpenses
+                                        .removeWhere((e) => e.id == item.id),
+                                  );
+                                }
+                                return;
+                              }
                               final plan = widget.store.annualPlans
                                   .where((p) => p.id == item.id)
                                   .firstOrNull;
@@ -438,12 +619,13 @@ class _AnnualRadarState extends State<AnnualRadar> {
                               if (action == 'edit') edit(plan);
                               if (action == 'delete') delete(plan);
                             },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Düzenle'),
-                              ),
-                              PopupMenuItem(
+                            itemBuilder: (_) => [
+                              if (!item.scheduled || !item.paid)
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Düzenle'),
+                                ),
+                              const PopupMenuItem(
                                 value: 'delete',
                                 child: Text('Sil'),
                               ),
@@ -458,7 +640,7 @@ class _AnnualRadarState extends State<AnnualRadar> {
           ),
         const SizedBox(height: 7),
         Text(
-          'Yıllık tekrarlayan giderler otomatik görünür. Manuel planlar ödeme yapıldı anlamına gelmez; gerçek gideri ayrıca kaydetmelisin.',
+          'Bekleyen ödemeler bakiyeni etkilemez. Ödendi olarak kaydedildiğinde giderlere eklenir.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 11,
@@ -493,6 +675,7 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
   late DateTime due = widget.plan == null
       ? DateTime(DateTime.now().year, DateTime.now().month + 1, 1)
       : nextAnnualPlanDue(widget.plan!, DateTime.now());
+  late DateTime? endDate = widget.plan?.endDate;
   bool dateChanged = false;
   bool saving = false;
   String? error;
@@ -567,8 +750,35 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
               setState(() {
                 due = chosen;
                 dateChanged = true;
+                if (endDate != null && endDate!.isBefore(chosen)) {
+                  endDate = null;
+                }
               });
             }
+          },
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            endDate == null
+                ? 'Bitiş tarihi yok'
+                : 'Bitiş: ${dateLabel(endDate!)}',
+          ),
+          subtitle: const Text('İsteğe bağlı'),
+          trailing: endDate == null
+              ? const Icon(Icons.chevron_right)
+              : IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => endDate = null),
+                ),
+          onTap: () async {
+            final chosen = await showDatePicker(
+              context: context,
+              initialDate: endDate ?? due,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (chosen != null) setState(() => endDate = chosen);
           },
         ),
         if (error != null)
@@ -582,6 +792,12 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
               ? null
               : () async {
                   if (!form.currentState!.validate()) return;
+                  if (endDate != null && endDate!.isBefore(due)) {
+                    setState(
+                      () => error = 'Bitiş tarihi ilk vadeden önce olamaz.',
+                    );
+                    return;
+                  }
                   setState(() => saving = true);
                   try {
                     await widget.store.change(() {
@@ -595,6 +811,7 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
                         startYear: widget.plan == null || dateChanged
                             ? due.year
                             : widget.plan!.startYear,
+                        endDate: endDate,
                       );
                       if (widget.plan == null) {
                         widget.store.annualPlans.add(plan);

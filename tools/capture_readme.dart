@@ -149,6 +149,48 @@ void main() {
       Transfer(id: 'demo-transfer', goal: goal.id, amount: 3500000, date: now),
     );
     store.budgets[store.budgetKey(now)] = 2500000;
+    store.scheduledExpenses.addAll([
+      ScheduledExpense(
+        id: 'future-insurance',
+        title: 'Araç sigortası',
+        category: 'Ulaşım',
+        amount: 960000,
+        due: DateTime(now.year, now.month, 24),
+      ),
+      ScheduledExpense(
+        id: 'future-service',
+        title: 'Motor bakımı',
+        category: 'Ulaşım',
+        amount: 480000,
+        due: DateTime(now.year, now.month + 1, 12),
+      ),
+    ]);
+    store.rules.add(
+      RepeatRule(
+        id: 'internet',
+        title: 'Ev interneti',
+        amount: 65000,
+        income: false,
+        start: DateTime(now.year, now.month, 18),
+        category: 'Ev & faturalar',
+        frequency: 3,
+        isBill: true,
+        automaticPayment: false,
+        endDate: DateTime(now.year + 1, now.month, 18),
+      ),
+    );
+    store.annualPlans.add(
+      AnnualPlan(
+        id: 'annual-insurance',
+        title: 'Yıllık trafik sigortası',
+        category: 'Ulaşım',
+        amount: 1280000,
+        month: now.month,
+        dueDay: 27,
+        startYear: now.year,
+        endDate: DateTime(now.year + 2, now.month, 27),
+      ),
+    );
     final boundaryKey = GlobalKey();
     await tester.pumpWidget(
       RepaintBoundary(
@@ -181,10 +223,48 @@ void main() {
     });
     await tester.pumpAndSettle();
     await capture('goal-complete');
-    await store.change(() => store.dark = true);
+    await store.change(() {
+      store.dark = true;
+      goal.target = 13000000;
+    });
     await tester.tap(find.text('Analiz').last);
     await tester.pumpAndSettle();
     await capture('analysis');
+    await tester.tap(find.text('Cüzdan').last);
+    await tester.pumpAndSettle();
+    await capture('wallet');
+    await tester.tap(find.text('Gelir & Gider').last);
+    await tester.pumpAndSettle();
+    await capture('transactions');
+    await tester.tap(find.text('Giderler'));
+    await tester.pumpAndSettle();
+    await capture('expenses');
+    await tester.ensureVisible(find.text('Yıllık radar'));
+    await tester.tap(find.text('Yıllık radar'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Yıllık masraf radarı'));
+    await tester.pumpAndSettle();
+    await capture('annual-radar');
+    await Scrollable.ensureVisible(
+      tester.element(find.text('${months[now.month - 1]} · 3 plan')),
+      alignment: .08,
+    );
+    await tester.pumpAndSettle();
+    await capture('radar-payments');
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+    await capture('profile');
+    await tester.tap(find.byTooltip('Yeni kayıt ekle'));
+    await tester.pumpAndSettle();
+    await capture('add-menu');
+    await tester.tap(find.text('Gider ekle').last);
+    await tester.pumpAndSettle();
+    await capture('expense-form');
+    await tester.tap(find.text('Düzenli ödeme'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Bitiş tarihi yok'));
+    await tester.pumpAndSettle();
+    await capture('regular-payment-form');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

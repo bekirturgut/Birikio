@@ -175,6 +175,7 @@ FinancialHealthReport financialHealthReport(FinanceStore store, DateTime now) {
     final first = _firstPeriodNear(rule, start);
     for (var period = first; period < first + 400; period++) {
       final due = rule.occurrence(period);
+      if (rule.endDate != null && due.isAfter(day(rule.endDate!))) break;
       if (!due.isBefore(end)) break;
       if (due.isBefore(start)) continue;
       final payment = store.entries

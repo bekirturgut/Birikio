@@ -54,7 +54,14 @@ Map<String, dynamic> parseBackup(String raw) {
     }
   }
 
-  for (final key in ['entries', 'rules', 'goals', 'transfers', 'annualPlans']) {
+  for (final key in [
+    'entries',
+    'rules',
+    'goals',
+    'transfers',
+    'annualPlans',
+    'scheduledExpenses',
+  ]) {
     uniqueIds(key);
   }
   for (final item in migrated['entries'] as List) {
@@ -75,6 +82,25 @@ Map<String, dynamic> parseBackup(String raw) {
         item['cursor'] < 0 ||
         DateTime.tryParse(item['start']?.toString() ?? '') == null) {
       throw const FormatException('Geçersiz tekrar kuralı.');
+    }
+    final end = item['endDate'];
+    if (end != null &&
+        (DateTime.tryParse(end.toString()) == null ||
+            DateTime.parse(
+              end.toString(),
+            ).isBefore(DateTime.parse(item['start'])))) {
+      throw const FormatException('Geçersiz bitiş tarihi.');
+    }
+  }
+  for (final item in migrated['scheduledExpenses'] as List) {
+    if (item['title'] is! String ||
+        item['category'] is! String ||
+        item['amount'] is! int ||
+        item['amount'] <= 0 ||
+        DateTime.tryParse(item['due']?.toString() ?? '') == null ||
+        (item['paidAt'] != null &&
+            DateTime.tryParse(item['paidAt'].toString()) == null)) {
+      throw const FormatException('Geçersiz ileri tarihli gider.');
     }
   }
   for (final item in migrated['goals'] as List) {
@@ -117,6 +143,14 @@ Map<String, dynamic> parseBackup(String raw) {
         item['startYear'] < 2000 ||
         item['startYear'] > 9999) {
       throw const FormatException('Geçersiz yıllık masraf planı.');
+    }
+    final end = item['endDate'];
+    if (end != null &&
+        (DateTime.tryParse(end.toString()) == null ||
+            DateTime.parse(
+              end.toString(),
+            ).isBefore(DateTime(item['startYear'], item['month'], 1)))) {
+      throw const FormatException('Geçersiz yıllık plan bitiş tarihi.');
     }
   }
   final budgets = migrated['budgets'];

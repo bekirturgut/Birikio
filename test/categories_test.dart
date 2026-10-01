@@ -69,6 +69,16 @@ void main() {
             category: 'Kedi',
             frequency: 3,
             cursor: 1,
+            endDate: DateTime(2026, 9, 1),
+          ),
+        );
+        store.scheduledExpenses.add(
+          ScheduledExpense(
+            id: 'future-cat',
+            title: 'Veteriner',
+            category: 'Kedi',
+            amount: 5000,
+            due: DateTime(2027, 1, 1),
           ),
         );
       });
@@ -84,6 +94,7 @@ void main() {
       );
       expect(store.entries.single.category, 'Evcil hayvan');
       expect(store.rules.single.category, 'Evcil hayvan');
+      expect(store.scheduledExpenses.single.category, 'Evcil hayvan');
       await expectLater(
         store.change(
           () => store.renameCategory(false, 'Evcil hayvan', 'Alışveriş'),
@@ -101,6 +112,7 @@ void main() {
       );
       await reopened.load();
       expect(reopened.entries.single.category, 'Evcil hayvan');
+      expect(reopened.scheduledExpenses.single.category, 'Evcil hayvan');
       expect(reopened.categoriesFor(false), isNot(contains('Evcil hayvan')));
     },
   );
@@ -148,6 +160,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Maaş kaydı'), findsNothing);
     expect(find.text('Market kaydı'), findsOneWidget);
+    await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ulaşım').last);

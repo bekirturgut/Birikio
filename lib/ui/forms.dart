@@ -120,6 +120,7 @@ class _EntryFormState extends State<EntryForm> {
   int frequency = 0;
   bool isBill = false;
   bool automaticPayment = true;
+  DateTime? endDate;
   bool saving = false;
   String? error;
   @override
@@ -177,6 +178,19 @@ class _EntryFormState extends State<EntryForm> {
         );
         if (widget.entry != null) {
           widget.store.updateRecurringEntry(widget.entry!, e, scope);
+        } else if (frequency == 0 &&
+            !widget.income &&
+            date.isAfter(day(DateTime.now()))) {
+          widget.store.scheduledExpenses.add(
+            ScheduledExpense(
+              id: uid(),
+              title: e.title,
+              amount: e.amount,
+              category: e.category,
+              due: date,
+              note: e.note,
+            ),
+          );
         } else if (frequency == 0) {
           widget.store.entries.add(e);
         } else {
@@ -192,6 +206,7 @@ class _EntryFormState extends State<EntryForm> {
               note: e.note,
               isBill: isBill,
               automaticPayment: automaticPayment,
+              endDate: endDate,
             ),
           );
           widget.store.materialize(DateTime.now());
@@ -320,18 +335,25 @@ class _EntryFormState extends State<EntryForm> {
                       context: context,
                       initialDate: date,
                       firstDate: DateTime(2000),
-                      lastDate: widget.entry == null && frequency != 0
+                      lastDate: widget.entry == null
                           ? DateTime(2100)
                           : DateTime.now(),
                     );
-                    if (d != null) setState(() => date = d);
+                    if (d != null) {
+                      setState(() {
+                        date = d;
+                        if (endDate != null && endDate!.isBefore(d)) {
+                          endDate = null;
+                        }
+                      });
+                    }
                   },
           ),
           if (widget.entry == null) ...[
             if (!widget.income)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Fatura / abonelik'),
+                title: const Text('Düzenli ödeme'),
                 subtitle: const Text('Ödeme tarihlerini takip et'),
                 value: isBill,
                 onChanged: (value) => setState(() {
@@ -365,6 +387,32 @@ class _EntryFormState extends State<EntryForm> {
                 }
               }),
             ),
+            if (frequency > 0)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_busy_outlined),
+                title: Text(
+                  endDate == null
+                      ? 'Bitiş tarihi yok'
+                      : 'Bitiş: ${dateLabel(endDate!)}',
+                ),
+                subtitle: const Text('İsteğe bağlı'),
+                trailing: endDate == null
+                    ? const Icon(Icons.chevron_right)
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => endDate = null),
+                      ),
+                onTap: () async {
+                  final chosen = await showDatePicker(
+                    context: context,
+                    initialDate: endDate ?? date,
+                    firstDate: date,
+                    lastDate: DateTime(2100),
+                  );
+                  if (chosen != null) setState(() => endDate = chosen);
+                },
+              ),
             if (frequency > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

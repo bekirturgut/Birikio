@@ -24,6 +24,7 @@ import 'launch.dart';
 import 'widget_picker.dart';
 import 'app_version.dart';
 import 'orbit_chart.dart';
+import 'annual_radar.dart';
 
 class BirikioApp extends StatelessWidget {
   final FinanceStore store;
@@ -788,6 +789,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               r.isBill &&
               !r.automaticPayment &&
               r.active &&
+              (r.endDate == null ||
+                  !r
+                      .occurrence(s.firstUnpaidBillPeriod(r))
+                      .isAfter(day(r.endDate!))) &&
               r.occurrence(s.firstUnpaidBillPeriod(r)).isBefore(day(now)),
         )
         .toList();
@@ -1768,9 +1773,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               '${e.title} kaydı kalıcı olarak silinecek ve bakiyen yeniden hesaplanacak.',
             );
             if (ok) {
-              final saved = await mutate(
-                () => s.entries.removeWhere((x) => x.id == e.id),
-              );
+              final saved = await mutate(() => s.removeEntry(e.id));
               if (saved && mounted) {
                 Navigator.pop(context);
                 animateMoney(false);
@@ -1976,7 +1979,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final rules = s.rules
         .where(
           (r) =>
-              r.active &&
               !r.isBill &&
               (entryFilter == 0 || r.income == (entryFilter == 1)) &&
               (categoryFilter == null || r.category == categoryFilter),
@@ -2150,7 +2152,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             Divider(color: selectedColor.withValues(alpha: .18), height: 1),
             const SizedBox(height: 12),
             Text(
-              '${data.length} kayıt · ${rules.length} aktif tekrar',
+              '${data.length} kayıt · ${rules.where((r) => r.active).length + bills.where((r) => r.active).length} aktif tekrar',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -2192,7 +2194,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                           style: TextStyle(fontSize: 11),
                         ),
                         Text(
-                          'Sonraki: ${dateLabel(r.occurrence(r.cursor))}',
+                          '${r.active && r.endDate != null && r.occurrence(r.cursor).isAfter(day(r.endDate!))
+                              ? 'Tamamlandı'
+                              : !r.active
+                              ? 'Durduruldu'
+                              : 'Sonraki: ${dateLabel(r.occurrence(r.cursor))}'}${r.endDate == null ? '' : ' · Bitiş: ${dateLabel(r.endDate!)}'}',
                           style: TextStyle(
                             fontSize: 10,
                             color: Theme.of(
@@ -2205,6 +2211,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   ),
                   TextButton(
                     onPressed: () async {
+                      if (!r.active) {
+                        await mutate(() => r.active = true);
+                        return;
+                      }
                       final stop = await showDialog<bool>(
                         context: context,
                         builder: (c) => AlertDialog(
@@ -2226,11 +2236,62 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                       );
                       if (stop == true) await mutate(() => r.active = false);
                     },
-                    child: Text('Durdur', style: TextStyle(fontSize: 11)),
+                    child: Text(
+                      r.active ? 'Durdur' : 'Sürdür',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Bitiş tarihini düzenle',
+                    icon: const Icon(Icons.event_busy_outlined),
+                    onPressed: () async {
+                      final selected = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            r.endDate ??
+                            (day(DateTime.now()).isAfter(r.start)
+                                ? day(DateTime.now())
+                                : r.start),
+                        firstDate: r.start,
+                        lastDate: DateTime(2100),
+                      );
+                      if (selected != null) {
+                        await mutate(() => r.endDate = selected);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    tooltip: 'Seriyi sil',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () async {
+                      if (await confirm(
+                        context,
+                        'Seri silinsin mi?',
+                        'Gelecek tekrarlar kaldırılır. Geçmiş gelir ve gider kayıtları korunur.',
+                      )) {
+                        await mutate(
+                          () => s.rules.removeWhere((rule) => rule.id == r.id),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+      if (entryFilter == 2) ...[
+        const SizedBox(height: 16),
+        Panel(
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text(
+              'Yıllık radar',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: const Text('Bekleyen ve düzenli giderleri gör'),
+            children: [AnnualRadar(store: s)],
           ),
         ),
       ],
@@ -2298,7 +2359,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ? rule.cursor
         : s.firstUnpaidBillPeriod(rule);
     final due = rule.occurrence(period);
-    final overdue = !rule.automaticPayment && due.isBefore(day(DateTime.now()));
+    final ended = rule.endDate != null && due.isAfter(day(rule.endDate!));
+    final overdue =
+        rule.active &&
+        !ended &&
+        !rule.automaticPayment &&
+        due.isBefore(day(DateTime.now()));
     final yearly = switch (rule.frequency) {
       1 => rule.amount * 365,
       2 => rule.amount * 52,
@@ -2337,10 +2403,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 10),
             Text(
-              '${rule.automaticPayment
-                  ? 'Otomatik kayıt'
-                  : !rule.active
+              '${!rule.active
                   ? 'Durduruldu'
+                  : ended
+                  ? 'Tamamlandı'
+                  : rule.automaticPayment
+                  ? 'Otomatik kayıt'
                   : overdue
                   ? 'Gecikti'
                   : 'Ödeme bekliyor'} · ${dateLabel(due)}',
@@ -2369,6 +2437,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            if (rule.endDate != null)
+              Text('Bitiş: ${dateLabel(rule.endDate!)}'),
             const SizedBox(height: 4),
             Text(
               'Aylık yaklaşık ${money((yearly / 12).round())} · Yıllık yaklaşık ${money(yearly)}',
@@ -2378,6 +2448,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               ),
             ),
             if (rule.active &&
+                !ended &&
                 !rule.automaticPayment &&
                 !due.isAfter(day(DateTime.now()))) ...[
               const SizedBox(height: 10),
@@ -2398,13 +2469,29 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   TextButton.icon(
                     onPressed: () => editBill(rule),
                     icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text('Düzenle'),
+                  ),
+                  IconButton(
+                    tooltip: 'Seriyi sil',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () async {
+                      if (await confirm(
+                        context,
+                        'Düzenli ödeme silinsin mi?',
+                        'Gelecek vadeler kaldırılır. Geçmiş gider kayıtları korunur.',
+                      )) {
+                        await mutate(
+                          () => s.rules.removeWhere((r) => r.id == rule.id),
+                        );
+                      }
+                    },
                   ),
                   TextButton.icon(
                     onPressed: () async {
@@ -2436,6 +2523,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     var title = rule.title;
     var amount = (rule.amount / 100).toStringAsFixed(2).replaceAll('.', ',');
     var category = rule.category;
+    DateTime? endDate = rule.endDate;
     final firstFuturePeriod = rule.automaticPayment
         ? rule.cursor
         : s.firstUnpaidBillPeriod(rule);
@@ -2500,6 +2588,30 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 onChanged: (value) => dueDay = value,
               ),
             ],
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                endDate == null
+                    ? 'Bitiş tarihi yok'
+                    : 'Bitiş: ${dateLabel(endDate!)}',
+              ),
+              subtitle: const Text('İsteğe bağlı'),
+              onTap: () async {
+                final chosen = await showDatePicker(
+                  context: dialogContext,
+                  initialDate: endDate ?? rule.start,
+                  firstDate: rule.start,
+                  lastDate: DateTime(2100),
+                );
+                if (chosen != null) update(() => endDate = chosen);
+              },
+              trailing: endDate == null
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => update(() => endDate = null),
+                    ),
+            ),
             if (error.isNotEmpty)
               Text(
                 error,
@@ -2523,6 +2635,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     rule.title = title.trim();
                     rule.amount = cents;
                     rule.category = category;
+                    rule.endDate = endDate;
                     if (rule.frequency == 3 || rule.frequency == 4) {
                       rule.dueDayChanges[firstFuturePeriod] = parsedDay;
                     }
