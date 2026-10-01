@@ -143,17 +143,23 @@ Birden fazla cihaz varsa:
 flutter run -d <cihaz-kimliği>
 ```
 
-Android deneme paketi oluşturmak için:
+Android'de yerel deneme için:
 
 ```sh
 flutter build apk --debug
 ```
 
-APK, `build/app/outputs/flutter-apk/app-debug.apk` konumunda oluşur. Bu paket geliştirme/test içindir; mağaza yayını için dağıtım imzası ve platform ayarları ayrıca hazırlanmalıdır.
+Bu debug APK'si geliştirme/test içindir. Telefona verileri koruyan **güncelleme APK'si** teslim etmek için `pubspec.yaml` içindeki `+` sonrasındaki sürüm kodunu önceki teslimden büyük yap, README'yi ve gerektiğinde görselleri güncelle, ardından Windows PowerShell'de şunu çalıştır:
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Bu sürüm `1.0.1+2` değerini kullanır. Geliştirme için kullanılan yerel debug anahtarını güvenli sakla; anahtar kaybolursa aynı kurulum üzerine imzalı güncelleme üretilemez.
+```powershell
+pwsh -File tools/build_update_apk.ps1
+```
 
-> Android debug APK derlenmiştir. README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
+Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
+
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.0.1+2` değerini kullanır. Kurmadan önce **Profil → Ayarlar → JSON yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+
+> README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
 ## Veriler ve hesaplama
 
@@ -223,6 +229,8 @@ lib/
 ```
 
 ### Kontroller
+
+Bu depoda çalışan asistanlar için kalıcı kurallar [AGENTS.md](AGENTS.md) dosyasındadır: her değişiklikte README güncellenir; arayüz değiştiyse ilgili ekran görüntülerinin güncelliği kontrol edilir ve gerekiyorsa yeniden üretilir. Güncelleme APK'si tesliminde [kimlik denetimi](tools/check_update_identity.ps1) zorunludur.
 
 ```sh
 flutter analyze
