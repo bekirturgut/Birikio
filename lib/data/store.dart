@@ -49,6 +49,8 @@ String money(int cents) {
   return '${cents < 0 ? '−' : ''}$grouped,${parts[1]} ₺';
 }
 
+String moneyInput(int cents) => money(cents).replaceAll(' ₺', '');
+
 int? parseMoney(String input) {
   var s = input.trim().replaceAll('₺', '').replaceAll(' ', '');
   if (s.contains(',')) {
@@ -68,6 +70,7 @@ class Entry {
   bool income;
   DateTime date;
   String? rule;
+  DateTime? plannedDue;
   Entry({
     required this.id,
     required this.title,
@@ -77,6 +80,7 @@ class Entry {
     required this.category,
     this.note = '',
     this.rule,
+    this.plannedDue,
   });
   Map<String, dynamic> json() => {
     'id': id,
@@ -87,6 +91,7 @@ class Entry {
     'category': category,
     'note': note,
     'rule': rule,
+    'plannedDue': plannedDue?.toIso8601String(),
   };
   factory Entry.read(Map<String, dynamic> j) => Entry(
     id: j['id'],
@@ -97,6 +102,9 @@ class Entry {
     category: j['category'],
     note: j['note'],
     rule: j['rule'],
+    plannedDue: j['plannedDue'] == null
+        ? null
+        : DateTime.parse(j['plannedDue']),
   );
 }
 
@@ -145,6 +153,21 @@ class RepeatRule {
       base.month,
       min(dueDay, DateTime(base.year, base.month + 1, 0).day),
     );
+  }
+
+  int firstPeriodOnOrAfter(DateTime date) {
+    final target = day(date);
+    if (!start.isBefore(target)) return 0;
+    var index = switch (frequency) {
+      1 => target.difference(day(start)).inDays,
+      2 => target.difference(day(start)).inDays ~/ 7,
+      3 => (target.year - start.year) * 12 + target.month - start.month,
+      _ => target.year - start.year,
+    };
+    while (occurrence(index).isBefore(target)) {
+      index++;
+    }
+    return index;
   }
 
   Map<String, dynamic> json() => {
@@ -348,6 +371,7 @@ class ScheduledExpense {
 }
 
 class FinanceStore extends ChangeNotifier {
+  Set<String> sentPaymentAlerts = {};
   static const defaultDashboardSections = <String>[
     'goal',
     'summary',
@@ -558,6 +582,7 @@ class FinanceStore extends ChangeNotifier {
     'lastBackupAt': lastBackupAt?.toIso8601String(),
     'dashboardSections': dashboardSections,
     'sentBudgetAlerts': sentBudgetAlerts.toList(),
+    'sentPaymentAlerts': sentPaymentAlerts.toList(),
     'incomeCategories': incomeCategories,
     'expenseCategories': expenseCategories,
     'incomeCategoryIds': incomeCategoryIds,
@@ -608,6 +633,9 @@ class FinanceStore extends ChangeNotifier {
           ).toSet().where(availableDashboardSections.contains).toList();
     final nextSentBudgetAlerts = Set<String>.from(
       document['sentBudgetAlerts'] as List? ?? const <String>[],
+    );
+    final nextSentPaymentAlerts = Set<String>.from(
+      document['sentPaymentAlerts'] as List? ?? const <String>[],
     );
     final nextIncomeCategories = List<String>.from(
       document['incomeCategories'] ?? defaultIncomeCategories,
@@ -664,6 +692,7 @@ class FinanceStore extends ChangeNotifier {
     lastBackupAt = nextLastBackupAt;
     dashboardSections = nextDashboardSections;
     sentBudgetAlerts = nextSentBudgetAlerts;
+    sentPaymentAlerts = nextSentPaymentAlerts;
     incomeCategories = nextIncomeCategories;
     expenseCategories = nextExpenseCategories;
     incomeCategoryIds = nextIncomeCategoryIds;
@@ -710,6 +739,7 @@ class FinanceStore extends ChangeNotifier {
             amount: plan.amount,
             income: true,
             date: plan.due,
+            plannedDue: plan.due,
             category: plan.category,
             note: plan.note,
           ),
@@ -732,6 +762,7 @@ class FinanceStore extends ChangeNotifier {
               amount: r.amount,
               income: r.income,
               date: date,
+              plannedDue: date,
               category: r.category,
               note: r.note,
               rule: r.id,
@@ -762,11 +793,80 @@ class FinanceStore extends ChangeNotifier {
   }
 
   int firstUnpaidBillPeriod(RepeatRule rule) {
-    var index = 0;
-    while (entries.any((entry) => entry.id == '${rule.id}:$index')) {
+    var index = rule.cursor;
+    final paid = entries.map((e) => e.id).toSet();
+    while (paid.contains('${rule.id}:$index')) {
       index++;
     }
     return index;
+  }
+
+  void resumeRule(
+    RepeatRule rule, {
+    required bool catchUpMissed,
+    DateTime? now,
+  }) {
+    final today = day(now ?? DateTime.now());
+    if (!catchUpMissed) {
+      rule.cursor = max(rule.cursor, rule.firstPeriodOnOrAfter(today));
+    }
+    rule.active = true;
+    materialize(today);
+  }
+
+  RepeatRule replaceRuleSchedule(
+    RepeatRule rule, {
+    required DateTime start,
+    required int frequency,
+    required bool automaticPayment,
+    DateTime? endDate,
+    DateTime? now,
+  }) {
+    final today = day(now ?? DateTime.now());
+    if (day(start).isBefore(today) ||
+        frequency < 1 ||
+        frequency > 4 ||
+        (endDate != null && day(endDate).isBefore(day(start)))) {
+      throw ArgumentError('Yeni seri bugünden önce başlayamaz.');
+    }
+    // Preserve overdue manual obligations before closing the old schedule.
+    if (rule.isBill && !rule.automaticPayment) {
+      var period = rule.cursor;
+      while (rule.occurrence(period).isBefore(today)) {
+        final due = rule.occurrence(period);
+        if (rule.endDate != null && due.isAfter(day(rule.endDate!))) break;
+        if (!entries.any((e) => e.id == '${rule.id}:$period')) {
+          scheduledExpenses.add(
+            ScheduledExpense(
+              id: uid(),
+              title: rule.title,
+              category: rule.category,
+              amount: rule.amount,
+              due: due,
+              note: rule.note,
+            ),
+          );
+        }
+        period++;
+      }
+    }
+    final revised = RepeatRule(
+      id: uid(),
+      title: rule.title,
+      amount: rule.amount,
+      income: rule.income,
+      start: day(start),
+      category: rule.category,
+      frequency: frequency,
+      note: rule.note,
+      endDate: endDate,
+      active: rule.active,
+      isBill: rule.isBill || (!rule.income && !automaticPayment),
+      automaticPayment: automaticPayment,
+    );
+    rules.removeWhere((r) => r.id == rule.id);
+    rules.add(revised);
+    return revised;
   }
 
   Future<void> markBillPaid(
@@ -795,6 +895,7 @@ class FinanceStore extends ChangeNotifier {
         amount: amount ?? rule.amount,
         income: false,
         date: day(paymentDate),
+        plannedDue: due,
         category: rule.category,
         note: rule.note,
         rule: rule.id,
@@ -818,6 +919,7 @@ class FinanceStore extends ChangeNotifier {
         amount: amount ?? plan.amount,
         income: false,
         date: date,
+        plannedDue: plan.due,
         category: plan.category,
         note: plan.note,
       ),
@@ -842,6 +944,7 @@ class FinanceStore extends ChangeNotifier {
         amount: amount ?? plan.amount,
         income: false,
         date: day(paidAt ?? DateTime.now()),
+        plannedDue: plan.dueIn(year),
         category: plan.category,
       ),
     );
@@ -851,6 +954,7 @@ class FinanceStore extends ChangeNotifier {
     entries.removeWhere((entry) => entry.id == id);
     if (id.startsWith('scheduled:')) {
       final planId = id.substring('scheduled:'.length);
+      scheduledExpenses.removeWhere((p) => p.id == planId && p.income);
       for (final plan in scheduledExpenses.where((p) => p.id == planId)) {
         plan.paidAt = null;
       }
@@ -878,6 +982,7 @@ class FinanceStore extends ChangeNotifier {
     budgets.clear();
     categoryBudgets.clear();
     sentBudgetAlerts.clear();
+    sentPaymentAlerts.clear();
     incomeCategories = [...defaultIncomeCategories];
     expenseCategories = [...defaultExpenseCategories];
     incomeCategoryIds = {

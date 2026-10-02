@@ -312,9 +312,7 @@ class _BudgetPageState extends State<BudgetPage> {
         .toList();
     var selectedCategory = category ?? availableCategories.firstOrNull;
     if (selectedCategory == null) return;
-    var amountText = current == null
-        ? ''
-        : (current / 100).toStringAsFixed(2).replaceAll('.', ',');
+    var amountText = current == null ? '' : moneyInput(current);
     String? error;
     var saving = false;
     await sheet(
@@ -434,9 +432,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> editBudget(int limit) async {
     final controller = TextEditingController(
-      text: limit == 0
-          ? ''
-          : (limit / 100).toStringAsFixed(2).replaceAll('.', ','),
+      text: limit == 0 ? '' : moneyInput(limit),
     );
     String? error;
     bool busy = false;

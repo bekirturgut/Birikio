@@ -168,9 +168,7 @@ class _EntryFormState extends State<EntryForm> {
   late final amount = TextEditingController(
     text: widget.entry == null && widget.scheduled == null
         ? ''
-        : ((widget.entry?.amount ?? widget.scheduled!.amount) / 100)
-              .toStringAsFixed(2)
-              .replaceAll('.', ','),
+        : moneyInput(widget.entry?.amount ?? widget.scheduled!.amount),
   );
   late final note = TextEditingController(
     text: widget.entry?.note ?? widget.scheduled?.note,
@@ -239,6 +237,7 @@ class _EntryFormState extends State<EntryForm> {
           category: category,
           note: note.text.trim(),
           rule: widget.entry?.rule,
+          plannedDue: widget.entry?.plannedDue,
         );
         if (widget.scheduled != null) {
           final p = widget.scheduled!;
@@ -536,18 +535,14 @@ class _GoalFormState extends State<GoalForm> {
   final key = GlobalKey<FormState>();
   late final name = TextEditingController(text: widget.goal?.title);
   late final amount = TextEditingController(
-    text: widget.goal == null
-        ? ''
-        : (widget.goal!.target / 100).toStringAsFixed(2).replaceAll('.', ','),
+    text: widget.goal == null ? '' : moneyInput(widget.goal!.target),
   );
   late String icon = widget.goal?.icon ?? 'Birikim';
   late DateTime? targetDate = widget.goal?.targetDate;
   late final monthly = TextEditingController(
     text: widget.goal?.monthlyContribution == null
         ? ''
-        : (widget.goal!.monthlyContribution! / 100)
-              .toStringAsFixed(2)
-              .replaceAll('.', ','),
+        : moneyInput(widget.goal!.monthlyContribution!),
   );
   late int? monthlyDueDay = widget.goal?.monthlyDueDay;
   bool saving = false;

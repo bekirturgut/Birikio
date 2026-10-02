@@ -265,7 +265,17 @@ void main() {
     await tester.tap(find.text('Düzenle').last);
     await tester.pumpAndSettle();
     await capture('regular-edit');
+    await tester.ensureVisible(find.text('Kaydet').last);
+    await tester.pumpAndSettle();
+    await capture('regular-schedule');
     await tester.tap(find.byTooltip('Pencereyi kapat').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Durdur').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sürdür').last);
+    await tester.pumpAndSettle();
+    await capture('regular-resume');
+    await tester.tap(find.text('Bugünden devam et · duraklanan vadeleri atla'));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(10, 50));
     await tester.pumpAndSettle();

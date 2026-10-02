@@ -26,6 +26,7 @@ import 'widget_picker.dart';
 import 'app_version.dart';
 import 'orbit_chart.dart';
 import 'annual_radar.dart';
+import 'recurring_editor.dart';
 import 'money_input.dart';
 
 class BirikioApp extends StatelessWidget {
@@ -1892,12 +1893,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   );
   void entryFilters() {
     DateTimeRange? range = entryDateRange;
-    var minText = entryMinAmount == null
-        ? ''
-        : (entryMinAmount! / 100).toStringAsFixed(2).replaceAll('.', ',');
-    var maxText = entryMaxAmount == null
-        ? ''
-        : (entryMaxAmount! / 100).toStringAsFixed(2).replaceAll('.', ',');
+    var minText = entryMinAmount == null ? '' : moneyInput(entryMinAmount!);
+    var maxText = entryMaxAmount == null ? '' : moneyInput(entryMaxAmount!);
     bool? repeat = recurringFilter;
     var order = entrySort;
     String? error;
@@ -1921,8 +1918,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 final picked = await showDateRangePicker(
                   context: dialogContext,
                   firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                  initialDateRange: range,
+                  lastDate: DateTime(2100, 12, 31),
+                  initialDateRange:
+                      range ??
+                      DateTimeRange(
+                        start: DateTime(
+                          entryMonth.year.clamp(2000, 2100),
+                          entryMonth.month,
+                        ),
+                        end: DateTime(
+                          entryMonth.year.clamp(2000, 2100),
+                          entryMonth.month + 1,
+                          0,
+                        ),
+                      ),
+                  fieldStartLabelText: 'Başlangıç',
+                  fieldEndLabelText: 'Bitiş',
                 );
                 if (picked != null) update(() => range = picked);
               },
@@ -2133,12 +2144,38 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         entryAllMonths || (!d.isBefore(start) && d.isBefore(end));
     bool typeMatches(bool income) =>
         entryFilter == 0 || income == (entryFilter == 1);
+    List<RadarExpense> scopedPlans() {
+      final result = annualRadarItems(
+        s,
+        entryMonth.year,
+      ).where((p) => !p.paid).toList();
+      if (entryAllMonths) {
+        for (final p in s.scheduledExpenses.where(
+          (p) => p.paidAt == null && p.due.year != entryMonth.year,
+        )) {
+          result.add(
+            RadarExpense(
+              id: p.id,
+              title: p.title,
+              category: p.category,
+              amount: p.amount,
+              due: p.due,
+              fromRule: false,
+              scheduled: true,
+              income: p.income,
+            ),
+          );
+        }
+      }
+      return result.where((p) => dateMatches(p.due)).toList();
+    }
+
     final monthEntries = s.sorted.where((e) => dateMatches(e.date)).toList();
     final categories = <String>{
       ...monthEntries
           .where((e) => typeMatches(e.income))
           .map((e) => e.category),
-      ...annualRadarItems(s, entryMonth.year)
+      ...scopedPlans()
           .where((p) => dateMatches(p.due) && typeMatches(p.income))
           .map((p) => p.category),
     }.toList()..sort();
@@ -2183,18 +2220,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
     final data = records();
     List<RadarExpense> plans() {
-      final years = entryAllMonths
-          ? <int>{
-              entryMonth.year,
-              ...s.scheduledExpenses.map((p) => p.due.year),
-            }
-          : <int>{entryMonth.year};
-      return years
-          .expand((year) => annualRadarItems(s, year))
+      final result = scopedPlans()
           .where(
             (p) =>
-                !p.paid &&
-                dateMatches(p.due) &&
                 typeMatches(p.income) &&
                 matches(
                   p.title,
@@ -2205,17 +2233,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   p.fromRule,
                 ),
           )
-          .toList()
-        ..sort((a, b) => a.due.compareTo(b.due));
+          .toList();
+      result.sort(
+        (a, b) => switch (entrySort) {
+          1 => a.due.compareTo(b.due),
+          2 => b.amount.compareTo(a.amount),
+          3 => a.amount.compareTo(b.amount),
+          _ => b.due.compareTo(a.due),
+        },
+      );
+      return result;
     }
 
     final pending = plans();
-    final summaryYears = entryAllMonths
-        ? <int>{entryMonth.year, ...s.scheduledExpenses.map((p) => p.due.year)}
-        : <int>{entryMonth.year};
-    final expected = summaryYears
-        .expand((year) => annualRadarItems(s, year))
-        .where((p) => !p.paid && dateMatches(p.due));
+    final expected = scopedPlans();
     final expectedIncome = expected
         .where((p) => p.income)
         .fold<int>(0, (v, p) => v + p.amount);
@@ -2231,7 +2262,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         entryMaxAmount != null ||
         recurringFilter != null;
     final scope = entryAllMonths
-        ? 'Tüm aylar'
+        ? 'Tüm geçmiş · düzenli/yıllık vadeler: ${entryMonth.year}'
         : '${dateLabel(start)} · seçili ay';
     final prefix = <Widget>[
       sectionTabs(
@@ -2401,6 +2432,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
               ],
             ),
+            if (entryAllMonths)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Tüm geçmiş ve tek seferlik planlar · düzenli/yıllık vadeler: ${entryMonth.year}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
             Row(
               children: [
                 Expanded(
@@ -2641,25 +2681,36 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               context,
               ListenableBuilder(
                 listenable: s,
-                builder: (context, _) => SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    0,
-                    16,
-                    MediaQuery.viewInsetsOf(context).bottom + 16,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      rule.isBill ? billCard(rule) : regularRecordCard(rule),
-                      if (rule.note.trim().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(rule.note),
+                builder: (context, _) {
+                  if (!s.rules.any((r) => r.id == rule.id)) {
+                    final route = ModalRoute.of(context);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted && route?.isActive == true) {
+                        Navigator.of(context).removeRoute(route!);
+                      }
+                    });
+                    return const SizedBox.shrink();
+                  }
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      MediaQuery.viewInsetsOf(context).bottom + 16,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        rule.isBill ? billCard(rule) : regularRecordCard(rule),
+                        if (rule.note.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(rule.note),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
     );
@@ -2795,7 +2846,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 label: const Text('Düzenle'),
               ),
               TextButton.icon(
-                onPressed: () => mutate(() => r.active = !r.active),
+                onPressed: () => toggleRecurringRule(context, s, r),
                 icon: Icon(
                   r.active
                       ? Icons.pause_circle_outline
@@ -2983,7 +3034,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   ),
                   TextButton.icon(
                     onPressed: () async {
-                      await s.change(() => rule.active = !rule.active);
+                      await toggleRecurringRule(context, s, rule);
                       if (mounted) setState(() {});
                     },
                     icon: Icon(
@@ -3007,163 +3058,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> editRepeatRule(RepeatRule rule) async {
-    var title = rule.title;
-    var amount = money(rule.amount).replaceAll(' ₺', '');
-    var category = rule.category;
-    var note = rule.note;
-    DateTime? endDate = rule.endDate;
-    final firstFuturePeriod = rule.isBill && !rule.automaticPayment
-        ? s.firstUnpaidBillPeriod(rule)
-        : rule.cursor;
-    final applicableDueChanges =
-        rule.dueDayChanges.keys
-            .where((period) => period <= firstFuturePeriod)
-            .toList()
-          ..sort();
-    var dueDay =
-        (applicableDueChanges.isEmpty
-                ? rule.start.day
-                : rule.dueDayChanges[applicableDueChanges.last]!)
-            .toString();
-    var error = '';
-    await sheet(
-      context,
-      StatefulBuilder(
-        builder: (dialogContext, update) => FormShell(
-          title: rule.income
-              ? 'Düzenli geliri düzenle'
-              : 'Düzenli ödemeyi düzenle',
-          subtitle:
-              'Değişiklikler bekleyen ve gelecek vadelere uygulanır. Gerçekleşen kayıtlar korunur; tekrar sıklığı değişmez.',
-          children: [
-            TextFormField(
-              initialValue: title,
-              decoration: const InputDecoration(labelText: 'Ad'),
-              onChanged: (value) => title = value,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: const [MoneyInputFormatter()],
-              decoration: const InputDecoration(
-                labelText: 'Tutar',
-                suffixText: '₺',
-              ),
-              onChanged: (value) => amount = value,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: category,
-              decoration: const InputDecoration(labelText: 'Kategori'),
-              items:
-                  {
-                        category,
-                        ...(rule.income
-                            ? s.incomeCategories
-                            : s.expenseCategories),
-                      }
-                      .map(
-                        (name) =>
-                            DropdownMenuItem(value: name, child: Text(name)),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                if (value != null) category = value;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: note,
-              minLines: 1,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Not (isteğe bağlı)',
-              ),
-              onChanged: (value) => note = value,
-            ),
-            if (rule.frequency == 3 || rule.frequency == 4) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                initialValue: dueDay,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Vade günü (1–31)',
-                  helperText: 'Kısa aylarda son güne uyarlanır.',
-                ),
-                onChanged: (value) => dueDay = value,
-              ),
-            ],
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                endDate == null
-                    ? 'Bitiş tarihi yok'
-                    : 'Bitiş: ${dateLabel(endDate!)}',
-              ),
-              subtitle: const Text('İsteğe bağlı'),
-              onTap: () async {
-                final chosen = await showDatePicker(
-                  context: dialogContext,
-                  initialDate: endDate ?? rule.start,
-                  firstDate: rule.start,
-                  lastDate: DateTime(2100),
-                );
-                if (chosen != null) update(() => endDate = chosen);
-              },
-              trailing: endDate == null
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => update(() => endDate = null),
-                    ),
-            ),
-            if (error.isNotEmpty)
-              Text(
-                error,
-                style: TextStyle(color: financeColors(context).negative),
-              ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: () async {
-                final cents = parseMoney(amount);
-                final parsedDay = int.tryParse(dueDay);
-                if (title.trim().isEmpty ||
-                    cents == null ||
-                    parsedDay == null ||
-                    parsedDay < 1 ||
-                    parsedDay > 31) {
-                  update(() => error = 'Ad, tutar ve vade gününü kontrol et.');
-                  return;
-                }
-                try {
-                  await s.change(() {
-                    rule.title = title.trim();
-                    rule.amount = cents;
-                    rule.category = category;
-                    rule.note = note.trim();
-                    rule.endDate = endDate;
-                    if (rule.frequency == 3 || rule.frequency == 4) {
-                      rule.dueDayChanges[firstFuturePeriod] = parsedDay;
-                    }
-                    s.materialize(DateTime.now());
-                  });
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                } catch (_) {
-                  update(() => error = 'Kaydedilemedi.');
-                }
-              },
-              child: const Text('Kaydet'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Future<void> editRepeatRule(RepeatRule rule) =>
+      editRecurringRule(context, s, rule);
 
   Widget _entrySummaryMetric(
     String label,

@@ -19,6 +19,15 @@
 
 Birikio, günlük para takibini birikim hedeflerinle bir araya getirir. İster ilk motorun, ister bir tatil, ister bir güvence birikimi: hedefini seç, para ayır ve ilerlemeni gör. Hesap oluşturman gerekmez; kayıtların cihazında tutulur.
 
+## 1.3 akış düzeltmeleri
+
+- Planlı gelir kaydı silindiğinde bağlı tek seferlik plan da kaldırılır; gelir sonraki açılışta yeniden oluşmaz.
+- Gelecek tarih aralığı seçilebilir. Kategori seçenekleri ve bekleyen liste aynı kapsamdan üretilir; tutar/tarih sıralaması iki kayıt bölümüne de uygulanır.
+- Durdurulan seri için **Bugünden devam et** (duraklanan vadeleri atla) veya **Eksik vadeleri tamamla** seçilir. Manuel ödemelerde ikinci seçenek geçmiş bekleyen vadeleri gösterir, ödeme yapılmış saymaz.
+- Seri silinince detay kapanır. Sıklık/başlangıç/ödeme türü değişikliği eski gerçekleşmiş kayıtları değiştirmez; eski gecikmiş manuel ödemeleri tek seferlik bekleyen planlar olarak korur.
+- Tutar girişleri düzenleme açılışında da binlik ayırıcıyla doldurulur. Yıllık rezerv hesabı bitmiş ve önceden ödenmiş vadeleri dışarıda bırakır.
+- Veri şeması 14'e geriye uyumlu geçer: ödeme vadesi ve telafi bildirimi geçmişi korunur. Android paket kimliği, yerel veri anahtarı, JSON yedek işareti ve imza değişmez.
+
 ## Ekran görüntüleri
 
 Görseller uygulamanın güncel Flutter arayüzünden, cihazda saklanmayan kurgu örnek verilerle üretildi. Tutarlar ve tarihler yalnızca anlatım içindir.
@@ -36,7 +45,7 @@ Anasayfada kullanılabilir bakiyeyi, bu ayın gelir ve giderini ve birikim hedef
 
 ### 2. Gelir ve giderlerini kaydet
 
-Düzenli gelir ve giderlerin bekleyen satırındaki kalem simgesi veya seri detayındaki **Düzenle** düğmesiyle ad, tutar, kategori, not, aylık/yıllık vade günü ve bitiş tarihini değiştir. Geçmiş işlemler korunur; değişiklikler bekleyen ve gelecek vadelere uygulanır. Tekrar sıklığı ve başlangıç tarihi bu düzenleyicide değiştirilemez. [Akış incelemesi ve seçilecek düzeltmeler](docs/INCELEME-2026-10-02.md) mevcut bulguları ve doğrulama sınırlarını listeler.
+Düzenli gelir ve giderlerin bekleyen satırındaki kalem simgesi veya seri detayındaki **Düzenle** düğmesiyle ad, tutar, kategori, not, aylık/yıllık vade günü ve bitiş tarihini değiştir. Geçmiş işlemler korunur; değişiklikler bekleyen ve gelecek vadelere uygulanır. Tekrar sıklığını, sonraki başlangıç tarihini ve giderin otomatik/manuel türünü de değiştirebilirsin. Takvim değişirse gelecek seri yeni kimlikle oluşturulur; geçmiş işlemler ve gecikmiş manuel ödemeler korunur. [Akış incelemesi ve tamamlanan düzeltmeler](docs/INCELEME-2026-10-02.md) mevcut bulguları ve doğrulama sınırlarını listeler.
 
 İşlem ve düzenli kayıt detayları içeriği kadar yükseklikte açılır. Açıklama varsa gösterilir; uzun açıklama kaydırılır. Düzenli kayıttaki durdur/sürdür işlemi açık pencerede anında güncellenir. Uzun formlarda içerik kaydırılır ve klavye için alt boşluk bırakılır.
 
@@ -53,6 +62,8 @@ Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını aç
 
 ### 3. İleri tarihli gideri veya düzenli ödemeyi planla
 
+<table><tr><td align="center"><strong>Serinin takvimini değiştir</strong><br /><img src="docs/images/regular-schedule.png" alt="Tekrar sıklığı ve yeni başlangıç tarihi düzenleme" width="310" /></td><td align="center"><strong>Duraklamadan devam et</strong><br /><img src="docs/images/regular-resume.png" alt="Bugünden devam et veya eksik vadeleri tamamla seçenekleri" width="310" /></td></tr></table>
+
 <p align="center"><img src="docs/images/regular-edit.png" alt="Düzenli gelir için ad, tutar, kategori ve not düzenleme formu" width="310" /></p>
 
 <p align="center"><img src="docs/images/regular-detail.png" alt="İçeriği kadar yükseklikte açılan düzenli kayıt detayı" width="310" /></p>
@@ -63,7 +74,7 @@ Gider formunda ileri tarih seçersen tek seferlik kayıt **bekleyen ödeme** olu
 
 İleri tarihli tek seferlik gelir, giderlerle birlikte **Kayıtlar** ve **Yıllık radar** içinde bekleyen kayıt olarak görünür. Listeden doğrudan düzenlenebilir veya silinebilir. Vadesine kadar kullanılabilir bakiyeye katılmaz; vade günü kendi tarihiyle bir kez gelir kaydına dönüşür.
 
-**Aylık kayıtlar:** Seçili ayın gerçekleşen gelir ve giderleriyle birlikte düzenli serilerin o aya düşen tüm bekleyen vadeleri gösterilir. Bekleyen satırlar **Yaklaşan**, **Bugün** veya **Gecikti** durumunu taşır; düzenli kayıtlar ayrıca belirtilir. Gerçekleşen vadeler ikinci kez bekleyen olarak listelenmez. Beklenen tutarlar ayrı gösterilir ve kullanılabilir bakiyeye eklenmez. Arama, kategori ve tekrar filtreleri bekleyen düzenli kayıtları da kapsar. Her bölüm ilk 5 kaydı gösterir; devamı **Tümünü gör** ile açılır. **Tüm kayıtları göster** geçmiş işlemleri ve tek seferlik planları açar; sonsuz tekrar üretmemek için düzenli vadeler seçili yıl ve tek seferlik planların yıllarıyla sınırlıdır. Başka yılları ay okları veya yıllık radarla inceleyebilirsin.
+**Aylık kayıtlar:** Seçili ayın gerçekleşen gelir ve giderleriyle birlikte düzenli serilerin o aya düşen tüm bekleyen vadeleri gösterilir. Bekleyen satırlar **Yaklaşan**, **Bugün** veya **Gecikti** durumunu taşır; düzenli kayıtlar ayrıca belirtilir. Gerçekleşen vadeler ikinci kez bekleyen olarak listelenmez. Beklenen tutarlar ayrı gösterilir ve kullanılabilir bakiyeye eklenmez. Arama, kategori ve tekrar filtreleri bekleyen düzenli kayıtları da kapsar. Her bölüm ilk 5 kaydı gösterir; devamı **Tümünü gör** ile açılır. **Tüm kayıtları göster** geçmiş işlemleri ve tek seferlik planları açar; sonsuz tekrar üretmemek için düzenli ve yıllık vadeler seçili yılla sınırlıdır; bu kapsam kartta açıkça yazılır. Tek seferlik planlar tüm yıllardan gösterilir. Başka yılları ay okları veya yıllık radarla inceleyebilirsin.
 
 <table>
   <tr>
@@ -74,7 +85,7 @@ Gider formunda ileri tarih seçersen tek seferlik kayıt **bekleyen ödeme** olu
 
 ### 4. Gelir ve gider takvimini radarda izle
 
-**Gelir & Gider → Yıllık radar** takviminde her ayın gelirini **+**, giderini **−** olarak görürsün. Gerçekleşmiş işlemler, ileri tarihli gelir/giderler, düzenli kayıtların vadeleri ve eski yıllık planlar birlikte gösterilir. Aynı gerçekleşmiş işlem iki kez sayılmaz; seriyi silsen bile geçmiş işlemler görünür kalır.
+**Gelir & Gider → Yıllık radar** takviminde her ayın gelirini **+**, giderini **−** olarak görürsün. Gerçekleşmiş işlemler, ileri tarihli gelir/giderler, düzenli kayıtların vadeleri ve eski yıllık planlar birlikte gösterilir. Bekleyenler vade ayında, gerçekleşenler ödeme/alınma ayında yer alır; vade ve işlem tarihi farklıysa ikisi de belirtilir. Yıl değiştiren bir ödeme de yalnızca bir kez sayılır. Düzenli radar satırından aynı seri düzenleyicisi açılır; seriyi silsen bile geçmiş işlemler görünür kalır.
 
 Yıllık toplam ve net, gerçekleşmiş kayıtlarla bekleyen planları birlikte içerir; kullanılabilir bakiye değildir. Ay seçince ayrıntılar ve **Alındı / Ödendi / Bekliyor / Gecikti** durumları açılır. Yeni planı **+ → Gelir/Gider** formundan oluştur; takvimde aynı işi yapan ekleme düğmeleri yoktur. Eski yıllık planlar düzenlenebilir ve silinebilir.
 
@@ -151,7 +162,7 @@ Anasayfadan kayıtlar ve takvim doğrudan açılır. Cüzdanda birikim ve bütç
 
 - **Tekrarlayan kayıtlar:** günlük, haftalık, aylık veya yıllık gelir ve giderler; başlangıç tarihi, isteğe bağlı bitiş tarihi, durdurma ve geçmiş kayıtları koruyarak seriyi silme seçenekleri.
 - **Faturalar:** otomatik seçilenler vadede gider olarak yazılır; manuel seçilenler yalnızca ödendi işaretlenince bakiyeyi etkiler. Gerçek banka tahsilatı doğrulanmaz.
-- **Bildirimler:** uygulama Android'in geçerli izin durumunu denetler; izin kapalıysa sistem ayarlarına götürür. Bütçe eşiklerine ek olarak manuel düzenli ödeme ve ileri tarihli tek seferlik giderler için vadeye 3, 2 ve 1 gün kala yerel hatırlatmalar planlanır. Teslim zamanı işletim sistemi ve pil kısıtlarına bağlıdır.
+- **Bildirimler:** Android izin durumu denetlenir. Tek seferlik gider, manuel/otomatik düzenli gider ve yıllık plan için vadeye 3, 2 ve 1 gün kala yerel hatırlatma hesaplanır. Aynı gündeki ödemeler tek bildirimde birleştirilir; Android için yaklaşık bir yıllık takvim hazırlanır. Günlük ve haftalık seriler 12 vadeyle sınırlı değildir. Üç gün içindeki veya gecikmiş yeni ödeme için tek seferlik telafi bildirimi gösterilir. iOS için en yakın 60 hatırlatma tarihi saklanır ve uygulama etkinliğinde yenilenir. Gerçek teslim zamanı işletim sistemi/pil kısıtlarına bağlıdır; bu sürümde fiziksel cihazda teslim testi yapılmadı.
 - **Arka plan:** Android WorkManager yaklaşık altı saatte bir gecikmiş otomatik kayıtları tamamlar ve hatırlatmaları yeniler. Android görevleri erteleyebilir; uygulama açıldığında kontrol ayrıca yapılır.
 - **Android widget:** 1×1 hedef yüzdesi, 2×1 bakiye, 2×2 hedef, 2×3 bütçe ve 3×3 finansal özet seçenekleri vardır. Ayarlardaki görsel seçim penceresinde boyut ve içerik önizlenir. Bakiye gizlilik tercihiyle kapatılabilir; uygulama verisi değiştiğinde yenilenir.
 - **Esnek formlar:** gelir kaynağı, gider adı, hedef adı ve not isteğe bağlıdır. İsimsiz kayıtlara uygun bir ad atanır.
@@ -206,7 +217,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.6+11` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.3.0+12` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
@@ -246,6 +257,16 @@ Tekrardan oluşan bir kaydı düzenlerken yalnızca o kayıt, o ve sonraki kayı
 > **Mevcut sınırlar:** cihazlar arası otomatik eşitleme yoktur. JSON yedeğiyle elle taşıma mümkündür. Uygulamayı kaldırmak veya uygulama verilerini temizlemek yerel kayıtları silebilir.
 
 ## Geliştirme
+
+Android emülatöründe `tools/notification_smoke.dart` ile gerçek eklenti testi yapıldı: 365 hatırlatma tarihi kaydedildi, otomatik/manuel/yıllık giderler takvimde ve yakın vade bildirimi Android'de doğrulandı. Bildirim başlatmasındaki eksik drawable hatası giderildi; ayrı `ic_notification` simgesi release kaynaklarında da korunur. Fiziksel telefonun pil kısıtları ve gerçek vade saatindeki teslimi bu emülatör testiyle garanti edilmez.
+
+Geliştirme emülatöründe testi tekrar çalıştırmak için:
+
+```powershell
+flutter run -d emulator-5554 -t tools/notification_smoke.dart --no-resident --dart-define=BIRIKIO_EMULATOR_SMOKE=true
+```
+
+Emülatörde uygulama bildirim izni açık olmalıdır. Kurgu kayıtlar bellektedir; test bildirim takvimini geçici değiştirir ve sonunda emülatördeki mevcut takvimi geri kurar. Bu hedefi kişisel telefonunda çalıştırma.
 
 **Altyapı:** Flutter · Dart · Material 3 · `ChangeNotifier` · `SharedPreferencesAsync` · Flutter yerelleştirme araçları · `package_info_plus`.
 
@@ -290,7 +311,7 @@ Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarları
 
 ### Görselleri yeniden üretme
 
-README'deki 25 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
+README'deki 27 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
 
 ```sh
 flutter test tools/capture_readme.dart --dart-define=FLUTTER_SDK=C:/flutter

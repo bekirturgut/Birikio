@@ -37,6 +37,9 @@ void main() {
     expect(find.text('Sürdür'), findsOneWidget);
     await tester.tap(find.text('Sürdür'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Bugünden devam et · duraklanan vadeleri atla'));
+    await tester.pumpAndSettle();
+    expect(rule.active, isTrue);
     await store.change(
       () => rule.note = List.filled(100, 'Uzun açıklama satırı.').join('\n'),
     );

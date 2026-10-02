@@ -37,6 +37,10 @@ Map<String, dynamic> parseBackup(String raw) {
     throw const FormatException('Yedek verisi eksik.');
   }
   final migrated = migrateFinanceDocument(data);
+  final paymentAlerts = migrated['sentPaymentAlerts'];
+  if (paymentAlerts is! List || paymentAlerts.any((key) => key is! String)) {
+    throw const FormatException('Geçersiz ödeme hatırlatma geçmişi.');
+  }
   if (data['schemaVersion'] != null && data['schemaVersion'] != version) {
     throw const FormatException('Yedek sürümleri uyuşmuyor.');
   }
@@ -65,6 +69,10 @@ Map<String, dynamic> parseBackup(String raw) {
     uniqueIds(key);
   }
   for (final item in migrated['entries'] as List) {
+    if (item['plannedDue'] != null &&
+        DateTime.tryParse(item['plannedDue'].toString()) == null) {
+      throw const FormatException('Geçersiz işlem vadesi.');
+    }
     if (item['amount'] is! int ||
         item['amount'] <= 0 ||
         item['income'] is! bool ||

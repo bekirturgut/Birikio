@@ -5,6 +5,7 @@ import 'forms.dart';
 import 'palette.dart';
 import 'widgets.dart';
 import 'money_input.dart';
+import 'recurring_editor.dart';
 
 class AnnualRadar extends StatefulWidget {
   final FinanceStore store;
@@ -18,9 +19,7 @@ class _AnnualRadarState extends State<AnnualRadar> {
   int selectedMonth = DateTime.now().month;
 
   Future<void> recordPayment(RadarExpense item) async {
-    final controller = TextEditingController(
-      text: (item.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
-    );
+    final controller = TextEditingController(text: moneyInput(item.amount));
     final amount = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -485,14 +484,21 @@ class _AnnualRadarState extends State<AnnualRadar> {
               '${dateLabel(item.due)} · ${item.category}',
               style: const TextStyle(fontSize: 12),
             ),
+            if (item.paid &&
+                item.plannedDue != null &&
+                day(item.plannedDue!) != day(item.due))
+              Text(
+                'Vade: ${dateLabel(item.plannedDue!)} · İşlem: ${dateLabel(item.due)}',
+                style: const TextStyle(fontSize: 12),
+              ),
             const SizedBox(height: 6),
             Text(
               item.paid
                   ? (item.income ? 'Alındı' : 'Ödendi')
-                  : item.income
-                  ? 'Beklenen gelir'
                   : late
                   ? 'Gecikti'
+                  : item.income
+                  ? 'Beklenen gelir'
                   : 'Bekliyor',
               style: TextStyle(
                 fontSize: 12,
@@ -559,6 +565,16 @@ class _AnnualRadarState extends State<AnnualRadar> {
                     ),
                 ],
               ),
+            if (!item.paid && rule != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      editRecurringRule(context, widget.store, rule),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Düzenle'),
+                ),
+              ),
           ],
         ),
       ),
@@ -578,9 +594,7 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
   final form = GlobalKey<FormState>();
   late final title = TextEditingController(text: widget.plan?.title);
   late final amount = TextEditingController(
-    text: widget.plan == null
-        ? ''
-        : (widget.plan!.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
+    text: widget.plan == null ? '' : moneyInput(widget.plan!.amount),
   );
   late String category =
       widget.plan?.category ??

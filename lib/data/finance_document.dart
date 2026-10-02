@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 /// Disk format version. The original, unversioned document is version 0.
-const financeSchemaVersion = 13;
+const financeSchemaVersion = 14;
 
 Map<String, dynamic> decodeFinanceDocument(String raw) {
   final decoded = jsonDecode(raw);
@@ -40,6 +40,7 @@ Map<String, dynamic> migrateFinanceDocument(Map<String, dynamic> document) {
   if (version < 3) migrated['categoryBudgets'] ??= <String, dynamic>{};
   if (version < 12) migrated['annualPlans'] ??= <dynamic>[];
   if (version < 13) migrated['scheduledExpenses'] ??= <dynamic>[];
+  if (version < 14) migrated['sentPaymentAlerts'] ??= <String>[];
   migrated['schemaVersion'] = financeSchemaVersion;
   return migrated;
 }

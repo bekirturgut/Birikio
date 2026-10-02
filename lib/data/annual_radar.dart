@@ -8,6 +8,7 @@ class RadarExpense {
   final bool fromRule;
   final bool scheduled, paid;
   final bool income, recorded;
+  final DateTime? plannedDue;
   final int? period;
   final int? paidAmount;
   const RadarExpense({
@@ -21,114 +22,109 @@ class RadarExpense {
     this.paid = false,
     this.income = false,
     this.recorded = false,
+    this.plannedDue,
     this.period,
     this.paidAmount,
   });
 }
 
 List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
-  int firstPeriod(RepeatRule rule) {
-    final start = DateTime(year, 1, 1);
-    if (!rule.start.isBefore(start)) return 0;
-    return switch (rule.frequency) {
-      1 => start.difference(rule.start).inDays,
-      2 => start.difference(rule.start).inDays ~/ 7,
-      3 => (year - rule.start.year) * 12 + 1 - rule.start.month,
-      _ => year - rule.start.year,
-    };
-  }
-
-  final items = <RadarExpense>[
-    for (final expense in store.scheduledExpenses)
-      if (expense.due.year == year)
-        RadarExpense(
-          id: expense.id,
-          title: expense.title,
-          category: expense.category,
-          amount: expense.amount,
-          due: expense.due,
-          fromRule: false,
-          scheduled: true,
-          paid: expense.paidAt != null,
-          income: expense.income,
-          paidAmount: store.entries
-              .where((e) => e.id == 'scheduled:${expense.id}')
-              .firstOrNull
-              ?.amount,
-        ),
-    for (final plan in store.annualPlans)
-      if (year >= plan.startYear &&
-          (plan.endDate == null ||
-              !plan.dueIn(year).isAfter(day(plan.endDate!))))
+  final entries = {for (final e in store.entries) e.id: e};
+  final items = <RadarExpense>[];
+  for (final plan in store.scheduledExpenses) {
+    if (plan.due.year == year &&
+        plan.paidAt == null &&
+        !entries.containsKey('scheduled:${plan.id}')) {
+      items.add(
         RadarExpense(
           id: plan.id,
           title: plan.title,
           category: plan.category,
           amount: plan.amount,
-          due: plan.dueIn(year),
+          due: plan.due,
           fromRule: false,
-          paid: store.entries.any((e) => e.id == 'annual:${plan.id}:$year'),
-          paidAmount: store.entries
-              .where((e) => e.id == 'annual:${plan.id}:$year')
-              .firstOrNull
-              ?.amount,
+          scheduled: true,
+          income: plan.income,
         ),
-    for (final rule in store.rules)
-      for (
-        var period = firstPeriod(rule);
-        period < firstPeriod(rule) + 370 &&
-            !rule.occurrence(period).isAfter(DateTime(year, 12, 31));
-        period++
-      )
-        if (rule.occurrence(period).year == year &&
-            ((rule.active &&
-                    ((rule.isBill && !rule.automaticPayment) ||
-                        period >= rule.cursor)) ||
-                store.entries.any((e) => e.id == '${rule.id}:$period')) &&
-            (rule.endDate == null ||
-                !rule.occurrence(period).isAfter(day(rule.endDate!))))
+      );
+    }
+  }
+  for (final plan in store.annualPlans) {
+    final due = plan.dueIn(year);
+    if (year >= plan.startYear &&
+        (plan.endDate == null || !due.isAfter(day(plan.endDate!))) &&
+        !entries.containsKey('annual:${plan.id}:$year')) {
+      items.add(
+        RadarExpense(
+          id: plan.id,
+          title: plan.title,
+          category: plan.category,
+          amount: plan.amount,
+          due: due,
+          fromRule: false,
+        ),
+      );
+    }
+  }
+  for (final rule in store.rules.where((r) => r.active)) {
+    var period = rule.firstPeriodOnOrAfter(DateTime(year, 1, 1));
+    final end = DateTime(year + 1);
+    while (rule.occurrence(period).isBefore(end)) {
+      final due = rule.occurrence(period);
+      if (rule.endDate != null && due.isAfter(day(rule.endDate!))) break;
+      if (period >= rule.cursor && !entries.containsKey('${rule.id}:$period')) {
+        items.add(
           RadarExpense(
             id: rule.id,
             title: rule.title,
             category: rule.category,
             amount: rule.amount,
-            due: rule.occurrence(period),
+            due: due,
             fromRule: true,
             income: rule.income,
             period: period,
-            paid: store.entries.any((e) => e.id == '${rule.id}:$period'),
-            paidAmount: store.entries
-                .where((e) => e.id == '${rule.id}:$period')
-                .firstOrNull
-                ?.amount,
           ),
-  ];
-  final represented = items
-      .map(
-        (item) => item.fromRule
-            ? '${item.id}:${item.period}'
-            : item.scheduled
-            ? 'scheduled:${item.id}'
-            : 'annual:${item.id}:$year',
-      )
-      .toSet();
-  for (final entry in store.entries) {
-    if (entry.date.year == year && !represented.contains(entry.id)) {
-      items.add(
-        RadarExpense(
-          id: entry.id,
-          title: entry.title,
-          category: entry.category,
-          amount: entry.amount,
-          due: entry.date,
-          fromRule: false,
-          income: entry.income,
-          recorded: true,
-          paid: true,
-          paidAmount: entry.amount,
-        ),
-      );
+        );
+      }
+      period++;
     }
+  }
+  // Completed transactions belong only to their actual payment/receipt date.
+  for (final e in store.entries.where((e) => e.date.year == year)) {
+    final rule = store.rules.where((r) => r.id == e.rule).firstOrNull;
+    final period = rule == null
+        ? null
+        : int.tryParse(e.id.substring(e.id.lastIndexOf(':') + 1));
+    final scheduled = store.scheduledExpenses
+        .where((p) => 'scheduled:${p.id}' == e.id)
+        .firstOrNull;
+    DateTime? plannedDue = scheduled?.due;
+    if (rule != null && period != null) plannedDue = rule.occurrence(period);
+    if (e.id.startsWith('annual:')) {
+      for (final p in store.annualPlans) {
+        final dueYear = int.tryParse(e.id.substring(e.id.lastIndexOf(':') + 1));
+        if (dueYear != null && e.id == 'annual:${p.id}:$dueYear') {
+          plannedDue = p.dueIn(dueYear);
+        }
+      }
+    }
+    items.add(
+      RadarExpense(
+        id: scheduled?.id ?? rule?.id ?? e.id,
+        title: e.title,
+        category: e.category,
+        amount: e.amount,
+        due: e.date,
+        plannedDue: e.plannedDue ?? plannedDue,
+        fromRule: rule != null,
+        scheduled: scheduled != null,
+        income: e.income,
+        recorded: true,
+        paid: true,
+        paidAmount: e.amount,
+        period: period,
+      ),
+    );
   }
   items.sort((a, b) => a.due.compareTo(b.due));
   return items;
@@ -144,7 +140,7 @@ int suggestedMonthlyAnnualReserve(FinanceStore store, DateTime now) {
   var result = 0;
   for (final plan in store.annualPlans) {
     var due = nextAnnualPlanDue(plan, now);
-    if (store.entries.any((e) => e.id == 'annual:${plan.id}:${due.year}')) {
+    while (store.entries.any((e) => e.id == 'annual:${plan.id}:${due.year}')) {
       due = plan.dueIn(due.year + 1);
     }
     if (plan.endDate != null && due.isAfter(day(plan.endDate!))) continue;
@@ -154,13 +150,13 @@ int suggestedMonthlyAnnualReserve(FinanceStore store, DateTime now) {
   for (final rule in store.rules.where(
     (rule) => rule.active && !rule.income && rule.frequency == 4,
   )) {
-    var index = math.max(0, now.year - rule.start.year);
+    var index = math.max(rule.cursor, rule.firstPeriodOnOrAfter(day(now)));
     var due = rule.occurrence(index);
-    if (due.isBefore(day(now)) ||
-        (due == day(now) &&
-            store.entries.any((entry) => entry.id == '${rule.id}:$index'))) {
+    while (due.isBefore(day(now)) ||
+        store.entries.any((entry) => entry.id == '${rule.id}:$index')) {
       due = rule.occurrence(++index);
     }
+    if (rule.endDate != null && due.isAfter(day(rule.endDate!))) continue;
     final months = math.max(1, monthsUntil(now, due));
     result += (rule.amount + months - 1) ~/ months;
   }
