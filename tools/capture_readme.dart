@@ -262,6 +262,11 @@ void main() {
     await tester.tap(find.text('Düzenli maaş'));
     await tester.pumpAndSettle();
     await capture('regular-detail');
+    await tester.tap(find.text('Düzenle').last);
+    await tester.pumpAndSettle();
+    await capture('regular-edit');
+    await tester.tap(find.byTooltip('Pencereyi kapat').last);
+    await tester.pumpAndSettle();
     await tester.tapAt(const Offset(10, 50));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Giderler'));

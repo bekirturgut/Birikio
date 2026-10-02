@@ -2605,11 +2605,34 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         '${dateLabel(p.due)} · ${pendingStatus(p.due)}\n${p.fromRule ? 'Düzenli' : 'Yıllık ödeme'} · ${p.category}',
       ),
       isThreeLine: true,
-      trailing: Text(
-        '${p.income ? '+' : '−'}${money(p.amount)}',
-        style: TextStyle(
-          color: p.income ? colors.positive : colors.negative,
-          fontWeight: FontWeight.w700,
+      trailing: SizedBox(
+        width: 118,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${p.income ? '+' : '−'}${money(p.amount)}',
+                style: TextStyle(
+                  color: p.income ? colors.positive : colors.negative,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (rule != null)
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Düzenli kaydı düzenle',
+                  onPressed: () => editRepeatRule(rule),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                ),
+              ),
+          ],
         ),
       ),
       onTap: rule == null
@@ -2766,6 +2789,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           Wrap(
             spacing: 4,
             children: [
+              TextButton.icon(
+                onPressed: () => editRepeatRule(r),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Düzenle'),
+              ),
               TextButton.icon(
                 onPressed: () => mutate(() => r.active = !r.active),
                 icon: Icon(
@@ -2934,7 +2962,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   TextButton.icon(
-                    onPressed: () => editBill(rule),
+                    onPressed: () => editRepeatRule(rule),
                     icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text('Düzenle'),
                   ),
@@ -2979,14 +3007,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> editBill(RepeatRule rule) async {
+  Future<void> editRepeatRule(RepeatRule rule) async {
     var title = rule.title;
-    var amount = (rule.amount / 100).toStringAsFixed(2).replaceAll('.', ',');
+    var amount = money(rule.amount).replaceAll(' ₺', '');
     var category = rule.category;
+    var note = rule.note;
     DateTime? endDate = rule.endDate;
-    final firstFuturePeriod = rule.automaticPayment
-        ? rule.cursor
-        : s.firstUnpaidBillPeriod(rule);
+    final firstFuturePeriod = rule.isBill && !rule.automaticPayment
+        ? s.firstUnpaidBillPeriod(rule)
+        : rule.cursor;
     final applicableDueChanges =
         rule.dueDayChanges.keys
             .where((period) => period <= firstFuturePeriod)
@@ -3002,9 +3031,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       context,
       StatefulBuilder(
         builder: (dialogContext, update) => FormShell(
-          title: 'Düzenli ödemeyi düzenle',
+          title: rule.income
+              ? 'Düzenli geliri düzenle'
+              : 'Düzenli ödemeyi düzenle',
           subtitle:
-              'Değişiklikler sonraki gider kayıtlarına uygulanır. Önceki ödemeler korunur.',
+              'Değişiklikler bekleyen ve gelecek vadelere uygulanır. Gerçekleşen kayıtlar korunur; tekrar sıklığı değişmez.',
           children: [
             TextFormField(
               initialValue: title,
@@ -3029,14 +3060,31 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               isExpanded: true,
               initialValue: category,
               decoration: const InputDecoration(labelText: 'Kategori'),
-              items: {category, ...s.expenseCategories}
-                  .map(
-                    (name) => DropdownMenuItem(value: name, child: Text(name)),
-                  )
-                  .toList(),
+              items:
+                  {
+                        category,
+                        ...(rule.income
+                            ? s.incomeCategories
+                            : s.expenseCategories),
+                      }
+                      .map(
+                        (name) =>
+                            DropdownMenuItem(value: name, child: Text(name)),
+                      )
+                      .toList(),
               onChanged: (value) {
                 if (value != null) category = value;
               },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: note,
+              minLines: 1,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Not (isteğe bağlı)',
+              ),
+              onChanged: (value) => note = value,
             ),
             if (rule.frequency == 3 || rule.frequency == 4) ...[
               const SizedBox(height: 12),
@@ -3097,10 +3145,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     rule.title = title.trim();
                     rule.amount = cents;
                     rule.category = category;
+                    rule.note = note.trim();
                     rule.endDate = endDate;
                     if (rule.frequency == 3 || rule.frequency == 4) {
                       rule.dueDayChanges[firstFuturePeriod] = parsedDay;
                     }
+                    s.materialize(DateTime.now());
                   });
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 } catch (_) {
