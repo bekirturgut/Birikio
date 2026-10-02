@@ -17,7 +17,10 @@ Future<T?> sheet<T>(BuildContext context, Widget child) =>
               duration: Duration(milliseconds: 320),
               reverseDuration: Duration(milliseconds: 220),
             ),
-      constraints: const BoxConstraints(maxWidth: 640),
+      constraints: BoxConstraints(
+        maxWidth: 640,
+        maxHeight: MediaQuery.sizeOf(context).height * .9,
+      ),
       builder: (_) => child,
     );
 Future<bool> confirm(

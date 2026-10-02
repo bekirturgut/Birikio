@@ -2616,9 +2616,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ? () => setState(() => entryView = 1)
           : () => sheet<void>(
               context,
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: rule.isBill ? billCard(rule) : regularRecordCard(rule),
+              ListenableBuilder(
+                listenable: s,
+                builder: (context, _) => SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    MediaQuery.viewInsetsOf(context).bottom + 16,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      rule.isBill ? billCard(rule) : regularRecordCard(rule),
+                      if (rule.note.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(rule.note),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
     );
@@ -2713,6 +2731,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     child: Panel(
       padding: const EdgeInsets.all(16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -2815,6 +2834,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       padding: const EdgeInsets.only(bottom: 10),
       child: Panel(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(

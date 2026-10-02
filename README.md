@@ -36,6 +36,8 @@ Anasayfada kullanılabilir bakiyeyi, bu ayın gelir ve giderini ve birikim hedef
 
 ### 2. Gelir ve giderlerini kaydet
 
+İşlem ve düzenli kayıt detayları içeriği kadar yükseklikte açılır. Açıklama varsa gösterilir; uzun açıklama kaydırılır. Düzenli kayıttaki durdur/sürdür işlemi açık pencerede anında güncellenir. Uzun formlarda içerik kaydırılır ve klavye için alt boşluk bırakılır.
+
 Aylık özet tek kartta iki sütundur: gelir ve giderin gerçekleşen tutarı, hemen altında aynı dönemin bekleyen tutarı yer alır. Liste filtreleri bu dönem özetini değiştirmez. Kartların iç boşlukları ve boş durum görselleri küçültüldü; daha fazla içerik aynı ekrana sığar.
 
 Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında **Kayıtlar / Yıllık radar / Düzenli** görünümlerine doğrudan geçersin. Kayıtlarda oklarla ay değiştirir veya **Tüm kayıtları göster** ile bütün geçmişi açarsın. Düzenli görünümü bütün serileri listeler. Yeni kayıt eklenince kaydın ayı açılır ve önceki arama/filtreler temizlenir. Kategori, tarih, tutar ve tekrar durumuyla ayrıca filtreleyebilirsin. Tutar yazarken binlik gruplar otomatik noktayla ayrılır.
@@ -48,6 +50,8 @@ Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını aç
 </table>
 
 ### 3. İleri tarihli gideri veya düzenli ödemeyi planla
+
+<p align="center"><img src="docs/images/regular-detail.png" alt="İçeriği kadar yükseklikte açılan düzenli kayıt detayı" width="310" /></p>
 
 <p align="center"><img src="docs/images/monthly-pending.png" alt="Seçili ayda düzenli beklenen gelir ve yaklaşan durum etiketi" width="310" /></p>
 
@@ -198,7 +202,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.4+9` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.5+10` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
@@ -282,7 +286,7 @@ Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarları
 
 ### Görselleri yeniden üretme
 
-README'deki 23 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
+README'deki 24 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
 
 ```sh
 flutter test tools/capture_readme.dart --dart-define=FLUTTER_SDK=C:/flutter

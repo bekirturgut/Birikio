@@ -259,6 +259,11 @@ void main() {
     await tester.ensureVisible(find.text('Düzenli maaş'));
     await tester.pumpAndSettle();
     await capture('monthly-pending');
+    await tester.tap(find.text('Düzenli maaş'));
+    await tester.pumpAndSettle();
+    await capture('regular-detail');
+    await tester.tapAt(const Offset(10, 50));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Giderler'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Giderler'));
