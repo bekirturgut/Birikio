@@ -69,13 +69,24 @@ class FormShell extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -.7,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.7,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Pencereyi kapat',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Text(
@@ -85,7 +96,7 @@ class FormShell extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         ...children,
       ],
     ),
@@ -96,11 +107,13 @@ class EntryForm extends StatefulWidget {
   final FinanceStore store;
   final bool income;
   final Entry? entry;
+  final ScheduledExpense? scheduled;
   const EntryForm({
     super.key,
     required this.store,
     required this.income,
     this.entry,
+    this.scheduled,
   });
   @override
   State<EntryForm> createState() => _EntryFormState();
@@ -108,16 +121,25 @@ class EntryForm extends StatefulWidget {
 
 class _EntryFormState extends State<EntryForm> {
   final key = GlobalKey<FormState>();
-  late final title = TextEditingController(text: widget.entry?.title);
-  late final amount = TextEditingController(
-    text: widget.entry == null
-        ? ''
-        : (widget.entry!.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
+  late final title = TextEditingController(
+    text: widget.entry?.title ?? widget.scheduled?.title,
   );
-  late final note = TextEditingController(text: widget.entry?.note);
-  late DateTime date = widget.entry?.date ?? day(DateTime.now());
+  late final amount = TextEditingController(
+    text: widget.entry == null && widget.scheduled == null
+        ? ''
+        : ((widget.entry?.amount ?? widget.scheduled!.amount) / 100)
+              .toStringAsFixed(2)
+              .replaceAll('.', ','),
+  );
+  late final note = TextEditingController(
+    text: widget.entry?.note ?? widget.scheduled?.note,
+  );
+  late DateTime date =
+      widget.entry?.date ?? widget.scheduled?.due ?? day(DateTime.now());
   late String category =
-      widget.entry?.category ?? (widget.income ? 'Maaş' : 'Alışveriş');
+      widget.entry?.category ??
+      widget.scheduled?.category ??
+      (widget.income ? 'Maaş' : 'Alışveriş');
   int frequency = 0;
   bool isBill = false;
   bool automaticPayment = true;
@@ -177,7 +199,15 @@ class _EntryFormState extends State<EntryForm> {
           note: note.text.trim(),
           rule: widget.entry?.rule,
         );
-        if (widget.entry != null) {
+        if (widget.scheduled != null) {
+          final p = widget.scheduled!;
+          p.title = e.title;
+          p.amount = e.amount;
+          p.category = e.category;
+          p.note = e.note;
+          p.due = date;
+          widget.store.materialize(DateTime.now());
+        } else if (widget.entry != null) {
           widget.store.updateRecurringEntry(widget.entry!, e, scope);
         } else if (frequency == 0 && date.isAfter(day(DateTime.now()))) {
           widget.store.scheduledExpenses.add(
@@ -234,7 +264,7 @@ class _EntryFormState extends State<EntryForm> {
       key: key,
       child: FormShell(
         title:
-            '${widget.income ? 'Gelir' : 'Gider'} ${widget.entry == null ? 'ekle' : 'düzenle'}',
+            '${widget.income ? 'Gelir' : 'Gider'} ${widget.entry == null && widget.scheduled == null ? 'ekle' : 'düzenle'}',
         subtitle: widget.entry?.rule != null
             ? 'Kaydederken değişikliğin hangi dönemleri etkileyeceğini seçebilirsin. Tekrarın tarih ve sıklığı değişmez.'
             : 'Küçük kayıtlar, büyük bir farkındalık.',
@@ -267,6 +297,7 @@ class _EntryFormState extends State<EntryForm> {
             ),
           ),
           DropdownButtonFormField<String>(
+            isExpanded: true,
             key: ValueKey(category),
             initialValue: category,
             decoration: const InputDecoration(labelText: 'Kategori'),
@@ -350,7 +381,7 @@ class _EntryFormState extends State<EntryForm> {
                     }
                   },
           ),
-          if (widget.entry == null) ...[
+          if (widget.entry == null && widget.scheduled == null) ...[
             if (!widget.income)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -374,6 +405,7 @@ class _EntryFormState extends State<EntryForm> {
               ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
+              key: ValueKey(frequency),
               initialValue: frequency,
               decoration: const InputDecoration(labelText: 'Tekrarlama'),
               items: List.generate(
@@ -630,7 +662,7 @@ class _GoalFormState extends State<GoalForm> {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         TextFormField(
           controller: name,
           maxLength: 40,
@@ -855,7 +887,7 @@ class _GoalFormState extends State<GoalForm> {
             error!,
             style: TextStyle(color: financeColors(context).negative),
           ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         FilledButton(
           onPressed: saving
               ? null
@@ -972,7 +1004,7 @@ class _TransferFormState extends State<TransferForm> {
           height: 1.5,
         ),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 18),
       FilledButton(
         onPressed: busy
             ? null

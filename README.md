@@ -36,7 +36,7 @@ Anasayfada kullanılabilir bakiyeyi, bu ayın gelir ve giderini ve birikim hedef
 
 ### 2. Gelir ve giderlerini kaydet
 
-Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında oklarla ay değiştirirsin: özet, kayıtlar ve düzenli kayıtlar yalnızca seçili ayı gösterir. Kategori, tarih, tutar ve tekrar durumuyla ayrıca filtreleyebilirsin. Tutar yazarken binlik gruplar otomatik noktayla ayrılır.
+Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında **Kayıtlar / Yıllık radar / Düzenli** görünümlerine doğrudan geçersin. Kayıtlarda oklarla ay değiştirir veya **Tüm kayıtları göster** ile bütün geçmişi açarsın. Düzenli görünümü bütün serileri listeler. Yeni kayıt eklenince kaydın ayı açılır ve önceki arama/filtreler temizlenir. Kategori, tarih, tutar ve tekrar durumuyla ayrıca filtreleyebilirsin. Tutar yazarken binlik gruplar otomatik noktayla ayrılır.
 
 <table>
   <tr>
@@ -49,7 +49,7 @@ Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını aç
 
 Gider formunda ileri tarih seçersen tek seferlik kayıt **bekleyen ödeme** olur ve radara eklenir. **Düzenli ödeme** seçeneğiyle sıklığı ve isteğe bağlı bitiş tarihini belirleyebilirsin. Otomatik seçilen düzenli ödemeler vadesinde gider kaydı oluşturur; bu, bankadan tahsilat doğrulaması değildir.
 
-İleri tarihli tek seferlik gelir **Beklenen gelirler** bölümünde görünür. Vadesine kadar kullanılabilir bakiyeye katılmaz; vade günü kendi tarihiyle bir kez gelir kaydına dönüşür.
+İleri tarihli tek seferlik gelir, giderlerle birlikte **Kayıtlar** ve **Yıllık radar** içinde bekleyen kayıt olarak görünür. Listeden doğrudan düzenlenebilir veya silinebilir. Vadesine kadar kullanılabilir bakiyeye katılmaz; vade günü kendi tarihiyle bir kez gelir kaydına dönüşür.
 
 <table>
   <tr>
@@ -58,14 +58,23 @@ Gider formunda ileri tarih seçersen tek seferlik kayıt **bekleyen ödeme** olu
   </tr>
 </table>
 
-### 4. Yaklaşan masrafları radarda izle
+### 4. Gelir ve gider takvimini radarda izle
 
-**Gelir & Gider → Giderler → Yıllık radar** yolundan takvimi açabilirsin. Tek seferlik ileri tarihli giderler, yıl içindeki düzenli ödeme vadeleri ve ayrıca eklediğin yıllık masraf planları aynı yerde görünür. Ay kutularında toplam planlanan tutarı, ödeme kartlarında **Bekliyor / Gecikti / Ödendi** durumunu görürsün.
+**Gelir & Gider → Yıllık radar** takviminde her ayın gelirini **+**, giderini **−** olarak görürsün. Gerçekleşmiş işlemler, ileri tarihli gelir/giderler, düzenli kayıtların vadeleri ve eski yıllık planlar birlikte gösterilir. Aynı gerçekleşmiş işlem iki kez sayılmaz; seriyi silsen bile geçmiş işlemler görünür kalır.
+
+Yıllık toplam ve net, gerçekleşmiş kayıtlarla bekleyen planları birlikte içerir; kullanılabilir bakiye değildir. Ay seçince ayrıntılar ve **Alındı / Ödendi / Bekliyor / Gecikti** durumları açılır. Yeni planı **+ → Gelir/Gider** formundan oluştur; takvimde aynı işi yapan ekleme düğmeleri yoktur. Eski yıllık planlar düzenlenebilir ve silinebilir.
 
 <table>
   <tr>
-    <td align="center"><strong>Giderler</strong><br /><sub>Radar, giderlerin içinden açılır.</sub><br /><br /><img src="docs/images/expenses.png" alt="Giderler ekranında düzenli ödemeler ve Yıllık radar bölümü" width="310" /></td>
-    <td align="center"><strong>Yıllık radar</strong><br /><sub>Aylara dağılan bekleyen masraflar.</sub><br /><br /><img src="docs/images/annual-radar.png" alt="Yıllık radar takvimi, planlanan ve bekleyen toplamlar" width="310" /></td>
+    <td align="center"><strong>Tüm kayıtlar</strong><br /><sub>Ay filtresini tek dokunuşla kaldır.</sub><br /><br /><img src="docs/images/records-all.png" alt="Bütün ayların gelir ve gider kayıtları" width="310" /></td>
+    <td align="center"><strong>Düzenli kayıtlar</strong><br /><sub>Durdur, bitiş tarihi belirle veya seriyi sil.</sub><br /><br /><img src="docs/images/recurring.png" alt="Düzenli gelir ve giderlerin doğrudan yönetimi" width="310" /></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center"><strong>Giderler</strong><br /><sub>Giderler tek dokunuşla filtrelenir.</sub><br /><br /><img src="docs/images/expenses.png" alt="Seçili ayın gider kayıtları" width="310" /></td>
+    <td align="center"><strong>Yıllık radar</strong><br /><sub>Aylara dağılan gelir ve giderler.</sub><br /><br /><img src="docs/images/annual-radar.png" alt="Yıllık radar takviminde aylık artı ve eksi toplamlar" width="310" /></td>
   </tr>
   <tr>
     <td align="center"><strong>Ödeme vadeleri</strong><br /><sub>Tek seferlik ve düzenli giderler aynı listede.</sub><br /><br /><img src="docs/images/radar-payments.png" alt="Radarda internet, araç sigortası ve yıllık trafik sigortası vadeleri" width="310" /></td>
@@ -88,14 +97,26 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
   </tr>
 </table>
 
+### Daha kısa erişim yolları
+
+Anasayfadan kayıtlar ve takvim doğrudan açılır. Cüzdanda birikim ve bütçe tek sıra sekmeyle seçilir. Profilde ayarlar, kategoriler, yedekleme, geri yükleme ve CSV dışa aktarma doğrudan görünür. Formlar görünür kapatma düğmesiyle kapanır; kompakt kartlar ve daha kısa geçişler içerik için alan bırakır.
+
+<table>
+  <tr>
+    <td align="center"><strong>Bütçe</strong><br /><img src="docs/images/budget.png" alt="Cüzdandaki doğrudan bütçe görünümü" width="260" /></td>
+    <td align="center"><strong>Ayarlar</strong><br /><img src="docs/images/settings.png" alt="Tema ve bildirim ayarları" width="260" /></td>
+    <td align="center"><strong>Kategoriler</strong><br /><img src="docs/images/categories.png" alt="Gelir ve gider kategorilerini yönetme" width="260" /></td>
+  </tr>
+</table>
+
 ## Özellikler
 
 | Ekran | Neler yapabilirsin? |
 | --- | --- |
 | **Anasayfa** | Hedefini, kullanılabilir bakiyeni, aylık özeti, finans yönetimi puanını ve geciken ödemeleri gör; kartları açıp kapat ve sıralarını düzenle. |
-| **Gelir & Gider** | Ay ay gelir, gider ve düzenli kayıtları gör; beklenen gelirleri, ileri tarihli giderleri ve Yıllık Radar'ı aynı akışta yönet. |
+| **Gelir & Gider** | Ay ay veya bütün geçmişi gör; gerçekleşmiş ve bekleyen kayıtları düzenle, düzenli serilere ve yıllık takvime doğrudan geç. |
 | **Cüzdan** | Birikim hedeflerini tarih ve aylık katkıyla planla; genel ve kategori bütçelerini izle. |
-| **Analiz** | Günlük, haftalık, aylık veya yıllık dönemi seç; gelir/gider karşılaştırmasını, harcama içgörülerini, kategori dağılımını, Paranın Yolculuğu akışını ve Yıllık Masraf Radarı'nı gör. |
+| **Analiz** | Günlük, haftalık, aylık veya yıllık dönemi seç; gelir/gider karşılaştırmasını, harcama içgörülerini, kategori dağılımını, Paranın Yolculuğu akışını ve Yıllık Radar'ı gör. |
 | **Profil** | Kategorileri ve yerel bildirimleri yönet; JSON yedek oluştur/geri yükle ve Türkçe CSV aktar. |
 
 ### Daha az uğraş, daha düzenli takip
@@ -111,7 +132,7 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
 - **Düzenlenebilir ana ekran:** başlıktaki düzenleme simgesinden hedef, aylık özet, ayrı bakiye, ayrı gelir/gider, son hareketler ve geciken ödeme kartlarını seçip sırala. Düzen cihazda saklanır. Varsayılan görünümde bakiye, gelir ve gider aylık özet kartında birlikte yer alır.
 - **Finans yönetimi puanı:** son üç tamamlanmış ay ve içinde bulunulan ayın kayıtlarını; gelir/gider dengesi, bütçe limitleri, birikime yatırma ve çekme, düzenli faturalar, gelir düzeni, aylık gidişat, bakiye tamponu ve harcama dağılımı üzerinden değerlendirir. Detay ekranı her alanın puanını ve kayda dayalı yorumları gösterir. Verisi olmayan alanlar ağırlık hesabından çıkarılır; otomatik ödeme kayıtları banka tahsilatının kanıtı değildir.
 - **Paranın Yolculuğu:** seçili dönemin gelirlerini, gider kategorilerini, birikime yatırma/çekmeyi ve dönemlik artışı ayrı akışlar halinde gösterir. Bir akışa dokununca onu oluşturan kayıtlar açılır. Çember grafiğinde paylar eşit kalınlıktaki dilimlerle gösterilir; dilime veya açıklamasına dokununca yüzdesi ve tutarı seçilir. Birikim aktarımı gelir veya gider sayılmaz.
-- **Yıllık masraf radarı:** Gelir & Gider ekranından da açılır. İleri tarihli tek seferlik giderleri ve yıl içindeki düzenli gider vadelerini gösterir; sigorta, bakım veya okul gibi yıllık masrafları ayrıca planlayabilirsin. Bekleyen ödemeler bakiyeyi değiştirmez; ödendi olarak kaydedilenler giderlere eklenir. Ödenen tutar planlanandan farklı girilebilir.
+- **Yıllık radar:** Kayıtların yanındaki sekmeden açılır; gerçekleşmiş ve bekleyen gelir/giderleri her ay için +/− toplamlarla gösterir. Yıllık tekrarı gelir/gider formundan seçebilirsin. Bekleyen ödemeler bakiyeyi değiştirmez; ödendi olarak kaydedilenler giderlere eklenir. Ödenen tutar planlanandan farklı girilebilir.
 - **Aylık birikim sözü:** her hedefe isteğe bağlı aylık tutar ve ayın son gününü ekleyebilirsin. Vade geçince eksik tutar hedef kartında ve Profil uyarısında görünür; zamanında ve gecikmeli yatırımlar finans puanında ayrı değerlendirilir. Eski hedefler kendiliğinden gecikmiş sayılmaz.
 - **Profil ve yedek:** Profil, en önemli güncel uyarıyı ve son yedek tarihini gösterir. JSON yedeği güncel veri şemasını, aylık planları, ekran tercihlerini ve kurulu uygulamanın sürümünü taşır.
 - **Android'de dosya kaydetme:** JSON yedeği ve CSV, sistemin belge oluşturma ekranında seçtiğin konuma yazılır. İptal edilen işlem son yedek tarihini değiştirmez.
@@ -157,7 +178,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.0.1+2` değerini kullanır. Kurmadan önce **Profil → Ayarlar → JSON yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.1.0+3` değerini kullanır. Kurmadan önce **Profil → JSON yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
@@ -207,7 +228,7 @@ lib/
 │   ├── store.dart        # Modeller, hesaplar, tekrarlar ve yerel saklama
 │   ├── analytics.dart    # Dönem karşılaştırmaları
 │   ├── money_journey.dart # Dönemlik para akışı hesabı
-│   ├── annual_radar.dart # Yıllık gider takvimi ve plan hesabı
+│   ├── annual_radar.dart # Gelir/gider yıllık takvimi ve plan hesabı
 │   ├── financial_health.dart # Finans yönetimi puanı ve yorumlar
 │   ├── goal_plan.dart   # Aylık hedef vadeleri ve eksik tutar
 │   ├── backup.dart       # JSON yedek ve CSV aktarımı
@@ -218,7 +239,7 @@ lib/
     ├── forms.dart        # Kayıt, hedef ve aktarım formları
     ├── reports.dart      # Bütçe, dönem analizi ve içgörüler
     ├── money_journey.dart # Para akışı görünümü
-    ├── annual_radar.dart # Yıllık masraf radarı görünümü
+    ├── annual_radar.dart # Gelir/gider yıllık takvimi görünümü
     ├── orbit_chart.dart  # Etkileşimli halka grafik
     ├── palette.dart      # Temaya uygun finans renkleri
     ├── widgets.dart      # Ortak bileşenler ve görsel animasyonlar
@@ -237,11 +258,11 @@ flutter analyze
 flutter test
 ```
 
-Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, veri geçişi, bütçe ve fatura hesapları, para akışı, yıllık masraf planları, dar ekran yerleşimi, tema kontrastı, widget seçimi, hedef tamamlama ve açılış akışlarını kapsar.
+Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarların tekilleştirilmesi, aktarım bakiyesi, kalıcılık, veri geçişi, bütçe ve fatura hesapları, para akışı, yıllık planlar, dar ekran yerleşimi, tema kontrastı, widget seçimi, hedef tamamlama ve açılış akışlarını kapsar. Kayıt erişimi testleri boş seçili aydan geçmişe erişimi, yeni kayıt eklerken eski arama/filtrelerin temizlenmesini, bekleyen gelir/gider düzenlemeyi ve radardaki +/− tutarların tek sayılmasını doğrular.
 
 ### Görselleri yeniden üretme
 
-README'deki 13 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
+README'deki 18 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
 
 ```sh
 flutter test tools/capture_readme.dart --dart-define=FLUTTER_SDK=C:/flutter

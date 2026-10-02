@@ -233,20 +233,31 @@ void main() {
     await tester.tap(find.text('Cüzdan').last);
     await tester.pumpAndSettle();
     await capture('wallet');
+    await tester.tap(find.text('Bütçe').first);
+    await tester.pumpAndSettle();
+    await capture('budget');
     await tester.tap(find.text('Gelir & Gider').last);
     await tester.pumpAndSettle();
     await capture('transactions');
     await tester.tap(find.text('Giderler'));
     await tester.pumpAndSettle();
     await capture('expenses');
+    await tester.tap(find.text('Tüm kayıtları göster').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tümü').first);
+    await tester.pumpAndSettle();
+    await capture('records-all');
+    await tester.tap(find.text('Düzenli'));
+    await tester.pumpAndSettle();
+    await capture('recurring');
     await tester.ensureVisible(find.text('Yıllık radar'));
     await tester.tap(find.text('Yıllık radar'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Yıllık masraf radarı'));
+    await tester.ensureVisible(find.textContaining('Gerçekleşen ve bekleyen'));
     await tester.pumpAndSettle();
     await capture('annual-radar');
     await Scrollable.ensureVisible(
-      tester.element(find.text('${months[now.month - 1]} · 3 plan')),
+      tester.element(find.textContaining('${months[now.month - 1]} ·')),
       alignment: .08,
     );
     await tester.pumpAndSettle();
@@ -254,6 +265,16 @@ void main() {
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
     await capture('profile');
+    await tester.tap(find.widgetWithText(ListTile, 'Ayarlar'));
+    await tester.pumpAndSettle();
+    await capture('settings');
+    await tester.tap(find.byTooltip('Pencereyi kapat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Kategoriler'));
+    await tester.pumpAndSettle();
+    await capture('categories');
+    await tester.tap(find.byTooltip('Pencereyi kapat'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Yeni kayıt ekle'));
     await tester.pumpAndSettle();
     await capture('add-menu');

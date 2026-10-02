@@ -70,8 +70,8 @@ class _BudgetPageState extends State<BudgetPage> {
               SizedBox(height: 24),
               Center(
                 child: SizedBox(
-                  width: 180,
-                  height: 180,
+                  width: 140,
+                  height: 140,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -88,7 +88,7 @@ class _BudgetPageState extends State<BudgetPage> {
                           ),
                           builder: (_, value, _) => CircularProgressIndicator(
                             value: value,
-                            strokeWidth: 12,
+                            strokeWidth: 9,
                             strokeCap: StrokeCap.round,
                             color: spent > limit && limit > 0
                                 ? financeColors(context).negative
@@ -277,6 +277,7 @@ class _BudgetPageState extends State<BudgetPage> {
           children: [
             if (category == null)
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Gider kategorisi',
@@ -692,9 +693,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
         ),
         const SizedBox(height: 18),
         AnimatedSwitcher(
-          duration: Duration(milliseconds: widget.store.motion ? 420 : 0),
+          duration: Duration(milliseconds: widget.store.motion ? 200 : 0),
           reverseDuration: Duration(
-            milliseconds: widget.store.motion ? 250 : 0,
+            milliseconds: widget.store.motion ? 150 : 0,
           ),
           transitionBuilder: (child, animation) =>
               BlurTabTransition(animation: animation, child: child),

@@ -41,13 +41,13 @@ class Panel extends StatelessWidget {
     super.key,
     required this.child,
     this.color,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(16),
   });
   @override
   Widget build(BuildContext context) => Material(
     color: color ?? Theme.of(context).colorScheme.surfaceContainer,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(18),
       side: BorderSide(
         color: Theme.of(context).dividerColor.withValues(alpha: .08),
       ),
@@ -66,7 +66,7 @@ class Eyebrow extends StatelessWidget {
     text,
     style: TextStyle(
       fontSize: 10,
-      letterSpacing: 2,
+      letterSpacing: 1,
       fontWeight: FontWeight.w700,
       color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
     ),
@@ -102,105 +102,53 @@ class Amount extends StatelessWidget {
 }
 
 class EmptyState extends StatelessWidget {
-  final String title, subtitle, action;
+  final String title, subtitle;
+  final String? action;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const EmptyState({
     super.key,
     required this.title,
     required this.subtitle,
-    required this.action,
-    required this.onTap,
-    this.icon = Icons.auto_awesome_rounded,
+    this.action,
+    this.onTap,
+    this.icon = Icons.event_note_outlined,
   });
   @override
   Widget build(BuildContext context) => Panel(
-    child: SizedBox(
-      width: double.infinity,
-      child: Column(
-        children: [
-          SizedBox(
-            width: 116,
-            height: 92,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  top: 7,
-                  left: 12,
-                  child: Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 14,
-                    color: financeColors(context).accent.withValues(alpha: .5),
-                  ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: financeColors(context).accent, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
-                Positioned(
-                  bottom: 8,
-                  right: 10,
-                  child: Icon(
-                    Icons.circle,
-                    size: 8,
-                    color: financeColors(context).gold.withValues(alpha: .7),
-                  ),
-                ),
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: .7, end: 1),
-                  duration: Duration(
-                    milliseconds: MediaQuery.disableAnimationsOf(context)
-                        ? 0
-                        : 650,
-                  ),
-                  curve: Curves.easeOutBack,
-                  builder: (_, value, child) =>
-                      Transform.scale(scale: value, child: child),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        colors: [
-                          financeColors(context).accent.withValues(alpha: .22),
-                          financeColors(context).accent.withValues(alpha: .06),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: financeColors(
-                          context,
-                        ).accent.withValues(alpha: .16),
-                      ),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: financeColors(context).accent,
-                      size: 31,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.5,
+            fontSize: 13,
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        if (action != null && onTap != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(onPressed: onTap, child: Text(action!)),
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(action),
-          ),
-        ],
-      ),
+      ],
     ),
   );
 }

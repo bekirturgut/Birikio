@@ -12,16 +12,13 @@ void main() {
     final store = FinanceStore(read: () async => null, write: (_) async {});
     await tester.pumpWidget(BirikioApp(store: store));
     await tester.tap(find.text('Profil').last);
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
     expect(find.text('Senin alanın'), findsOneWidget);
-    expect(find.text('Yalnızca bu cihazda'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Ayarlar'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
+    expect(find.text('Kategoriler'), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(ListTile, 'Ayarlar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ayarlar'));
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
     expect(find.text('Görsel animasyonlar'), findsOneWidget);
   });
 }

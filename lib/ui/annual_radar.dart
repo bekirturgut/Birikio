@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/annual_radar.dart';
 import '../data/store.dart';
@@ -77,83 +76,15 @@ class _AnnualRadarState extends State<AnnualRadar> {
     }
   }
 
-  Future<void> addExpense() async {
-    final scheduledCount = widget.store.scheduledExpenses.length;
-    final ruleCount = widget.store.rules.length;
-    final saved = await sheet<bool>(
-      context,
-      EntryForm(store: widget.store, income: false),
-    );
-    if (saved == true && mounted) {
-      final due = widget.store.scheduledExpenses.length > scheduledCount
-          ? widget.store.scheduledExpenses.last.due
-          : widget.store.rules.length > ruleCount
-          ? widget.store.rules.last.start
-          : DateTime.now();
-      setState(() {
-        year = due.year;
-        selectedMonth = due.month;
-      });
-    }
-  }
-
   Future<void> editScheduled(ScheduledExpense expense) async {
-    final title = TextEditingController(text: expense.title);
-    final amount = TextEditingController(
-      text: (expense.amount / 100).toStringAsFixed(2).replaceAll('.', ','),
-    );
-    var due = expense.due;
     await sheet<bool>(
       context,
-      StatefulBuilder(
-        builder: (dialogContext, update) => FormShell(
-          title: 'Bekleyen gideri düzenle',
-          subtitle: 'Vadesi gelmeden tutarı ve tarihi değiştirebilirsin.',
-          children: [
-            TextField(
-              controller: title,
-              decoration: const InputDecoration(labelText: 'Ad'),
-            ),
-            TextField(
-              controller: amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: const [MoneyInputFormatter()],
-              decoration: const InputDecoration(labelText: 'Tutar'),
-            ),
-            ListTile(
-              title: Text(dateLabel(due)),
-              subtitle: const Text('Vade tarihi'),
-              onTap: () async {
-                final chosen = await showDatePicker(
-                  context: dialogContext,
-                  initialDate: due,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (chosen != null) update(() => due = chosen);
-              },
-            ),
-            FilledButton(
-              onPressed: () async {
-                final cents = parseMoney(amount.text);
-                if (title.text.trim().isEmpty || cents == null) return;
-                await widget.store.change(() {
-                  expense.title = title.text.trim();
-                  expense.amount = cents;
-                  expense.due = due;
-                });
-                if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-              },
-              child: const Text('Kaydet'),
-            ),
-          ],
-        ),
+      EntryForm(
+        store: widget.store,
+        income: expense.income,
+        scheduled: expense,
       ),
     );
-    title.dispose();
-    amount.dispose();
   }
 
   Future<void> edit([AnnualPlan? plan]) async {
@@ -205,451 +136,297 @@ class _AnnualRadarState extends State<AnnualRadar> {
   @override
   Widget build(BuildContext context) {
     final items = annualRadarItems(widget.store, year);
-    final monthly = List<int>.generate(
-      12,
-      (index) => items
-          .where((item) => item.due.month == index + 1)
-          .fold(0, (sum, item) => sum + item.amount),
-    );
-    final annualTotal = monthly.fold(0, (a, b) => a + b);
-    final paidTotal = items
-        .where((item) => item.paid)
-        .fold<int>(0, (sum, item) => sum + (item.paidAmount ?? item.amount));
-    final monthItems = items
-        .where((item) => item.due.month == selectedMonth)
-        .toList();
-    final reserve = suggestedMonthlyAnnualReserve(widget.store, DateTime.now());
     final colors = financeColors(context);
-    final maxMonth = monthly.fold(0, math.max);
-    final titleRow = Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Yıllık masraf radarı',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => edit(),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Planla'),
-        ),
-        TextButton(onPressed: addExpense, child: const Text('Gider ekle')),
-      ],
-    );
-    if (widget.store.scheduledExpenses.isEmpty &&
-        widget.store.annualPlans.isEmpty &&
-        !widget.store.rules.any(
-          (r) =>
-              !r.income &&
-              (r.active || widget.store.entries.any((e) => e.rule == r.id)),
-        )) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          titleRow,
-          const SizedBox(height: 10),
-          Panel(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: Duration(
-                      milliseconds: MediaQuery.disableAnimationsOf(context)
-                          ? 0
-                          : 850,
-                    ),
-                    builder: (_, progress, child) =>
-                        Transform.rotate(angle: progress * .25, child: child),
-                    child: Container(
-                      width: 78,
-                      height: 78,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colors.gold.withValues(alpha: .12),
-                        border: Border.all(
-                          color: colors.gold.withValues(alpha: .3),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.radar_rounded,
-                        color: colors.gold,
-                        size: 39,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    'Büyük masrafları önceden gör',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    'Sigorta, bakım veya okul ödemesini planla. Vadesine kadar ayda ne kadar ayırman gerektiğini gösterelim.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 17),
-                  FilledButton.icon(
-                    onPressed: () => edit(),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('İlk masrafı planla'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+    int total(bool income, [int? month]) => items
+        .where(
+          (e) => e.income == income && (month == null || e.due.month == month),
+        )
+        .fold<int>(0, (sum, e) => sum + (e.paidAmount ?? e.amount));
+    final monthItems = items
+        .where((e) => e.due.month == selectedMonth)
+        .toList();
+    const months = [
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        titleRow,
-        const SizedBox(height: 10),
+        const Text(
+          'Yıllık radar',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Gerçekleşen ve bekleyen gelir ile giderler. Ay seçerek ayrıntıları gör.',
+          style: TextStyle(fontSize: 12, height: 1.5),
+        ),
+        Row(
+          children: [
+            IconButton(
+              tooltip: 'Önceki yıl',
+              onPressed: () => setState(() => year--),
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Text(
+                '$year',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Sonraki yıl',
+              onPressed: () => setState(() => year++),
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Önceki yıl',
-                    onPressed: () => setState(() {
-                      year--;
-                      selectedMonth = 1;
-                    }),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '$year · yaklaşan büyük masraflar',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Sonraki yıl',
-                    onPressed: () => setState(() {
-                      year++;
-                      selectedMonth = 1;
-                    }),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ],
+              Text(
+                '+ ${money(total(true))}',
+                style: TextStyle(
+                  color: colors.positive,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                money(annualTotal),
+                '− ${money(total(false))}',
                 style: TextStyle(
-                  color: colors.gold,
-                  fontSize: 31,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
+                  color: colors.negative,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
                 ),
               ),
+              const SizedBox(height: 8),
               Text(
-                'Planlanan ${money(annualTotal)} · Ödenen ${money(paidTotal)} · Bekleyen ${money(items.where((e) => !e.paid).fold<int>(0, (sum, e) => sum + e.amount))}',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color: colors.gold.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.gold.withValues(alpha: .25)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_month_rounded, color: colors.gold),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Bugünden itibaren aylık ayırma önerisi',
-                            style: TextStyle(
-                              color: colors.gold,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            money(reserve),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                'Bu bir hazırlık hesabıdır; tutar bakiyenden düşmez ve ayrılmış para olarak kaydedilmez.',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 10,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 18),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 12,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 9,
-                  crossAxisSpacing: 9,
-                  childAspectRatio: 1.35,
-                ),
-                itemBuilder: (context, index) {
-                  final month = index + 1;
-                  final selected = selectedMonth == month;
-                  final value = monthly[index];
-                  return Material(
-                    color: selected
-                        ? colors.gold.withValues(alpha: .2)
-                        : Theme.of(context).colorScheme.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(17),
-                      side: BorderSide(
-                        color: colors.gold.withValues(
-                          alpha: selected ? .65 : .12,
-                        ),
-                      ),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(17),
-                      onTap: () => setState(() => selectedMonth = month),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              months[index].substring(0, 3).toUpperCase(),
-                              style: TextStyle(
-                                color: selected
-                                    ? colors.gold
-                                    : colors.goalMuted,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            Text(
-                              value == 0 ? '—' : money(value),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: value == 0
-                                    ? FontWeight.w500
-                                    : FontWeight.w800,
-                              ),
-                            ),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween(
-                                  end: maxMonth == 0 ? 0 : value / maxMonth,
-                                ),
-                                duration: Duration(
-                                  milliseconds:
-                                      MediaQuery.disableAnimationsOf(context)
-                                      ? 0
-                                      : 700,
-                                ),
-                                builder: (_, progress, _) =>
-                                    LinearProgressIndicator(
-                                      value: progress,
-                                      minHeight: 3,
-                                      color: colors.gold,
-                                      backgroundColor: colors.gold.withValues(
-                                        alpha: .12,
-                                      ),
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+                'Yıllık net: ${money(total(true) - total(false))}',
+                style: const TextStyle(fontSize: 12),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          '${months[selectedMonth - 1]} · ${monthItems.length} plan',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        if (monthItems.isEmpty)
-          Panel(
-            child: Text(
-              'Bu ay için yıllık masraf planı yok.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) => GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: constraints.maxWidth < 300 ? 2 : 3,
+              mainAxisExtent: 94,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
             ),
-          )
-        else
-          ...monthItems.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Panel(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: colors.gold.withValues(alpha: .13),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        item.fromRule
-                            ? Icons.autorenew_rounded
-                            : Icons.event_rounded,
-                        color: colors.gold,
-                        size: 19,
-                      ),
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final m = index + 1;
+              final selected = selectedMonth == m;
+              return InkWell(
+                onTap: () => setState(() => selectedMonth = m),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? colors.accent.withValues(alpha: .14)
+                        : Theme.of(context).colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: selected ? colors.accent : Colors.transparent,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            '${dateLabel(item.due)} · ${item.category}${item.fromRule ? ' · düzenli' : ''} · ${item.paid
-                                ? 'Ödendi'
-                                : item.due.isBefore(day(DateTime.now()))
-                                ? 'Gecikti'
-                                : 'Bekliyor'}',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        months[index],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: selected ? colors.accent : null,
+                        ),
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          money(item.paidAmount ?? item.amount),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                      const Spacer(),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '+ ${money(total(true, m))}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colors.positive,
                           ),
                         ),
-                        if (!item.paid &&
-                            (!item.fromRule ||
-                                widget.store.rules.any(
-                                  (r) =>
-                                      r.id == item.id &&
-                                      r.isBill &&
-                                      !r.automaticPayment,
-                                )))
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '− ${money(total(false, m))}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colors.negative,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          '${months[selectedMonth - 1]} · ${monthItems.length} kayıt',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        if (monthItems.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'Bu ay için kayıt yok. Yeni gelir veya gider için uygulamanın + düğmesini kullan.',
+            ),
+          ),
+        ...monthItems.map((item) {
+          final rule = item.fromRule
+              ? widget.store.rules.where((r) => r.id == item.id).firstOrNull
+              : null;
+          final canPay =
+              !item.income &&
+              !item.paid &&
+              (item.scheduled ||
+                  (!item.fromRule) ||
+                  (rule?.isBill == true && rule?.automaticPayment == false));
+          final late = !item.paid && item.due.isBefore(day(DateTime.now()));
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Panel(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      Text(
+                        '${item.income ? '+' : '−'}${money(item.paidAmount ?? item.amount)}',
+                        style: TextStyle(
+                          color: item.income
+                              ? colors.positive
+                              : colors.negative,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${dateLabel(item.due)} · ${item.category}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.paid
+                        ? (item.income ? 'Alındı' : 'Ödendi')
+                        : item.income
+                        ? 'Beklenen gelir'
+                        : late
+                        ? 'Gecikti'
+                        : 'Bekliyor',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: item.paid
+                          ? colors.positive
+                          : late
+                          ? colors.negative
+                          : colors.accent,
+                    ),
+                  ),
+                  if (canPay || (!item.recorded && !item.fromRule))
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      children: [
+                        if (canPay)
                           TextButton(
                             onPressed: () => recordPayment(item),
-                            child: const Text('Ödendi'),
+                            child: const Text('Ödendi olarak kaydet'),
                           ),
-                        if (!item.fromRule)
+                        if (!item.recorded && !item.fromRule)
                           PopupMenuButton<String>(
                             tooltip: 'Plan seçenekleri',
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(
-                              Icons.more_horiz_rounded,
-                              size: 20,
-                            ),
                             onSelected: (action) async {
                               if (item.scheduled) {
+                                final p = widget.store.scheduledExpenses
+                                    .firstWhere((p) => p.id == item.id);
                                 if (action == 'edit') {
-                                  final expense = widget.store.scheduledExpenses
-                                      .where((e) => e.id == item.id)
-                                      .firstOrNull;
-                                  if (expense != null) editScheduled(expense);
-                                }
-                                if (action == 'delete') {
-                                  if (!await confirm(
-                                    context,
-                                    'Plan silinsin mi?',
-                                    'Plan radardan kaldırılır. Gerçekleşmiş gider kayıtları korunur.',
-                                  )) {
-                                    return;
-                                  }
+                                  await editScheduled(p);
+                                } else if (await confirm(
+                                  context,
+                                  'Plan silinsin mi?',
+                                  'Geçmiş kayıtlar korunur.',
+                                )) {
                                   await widget.store.change(
                                     () => widget.store.scheduledExpenses
-                                        .removeWhere((e) => e.id == item.id),
+                                        .removeWhere((e) => e.id == p.id),
                                   );
                                 }
-                                return;
+                              } else {
+                                final p = widget.store.annualPlans.firstWhere(
+                                  (p) => p.id == item.id,
+                                );
+                                if (action == 'edit') {
+                                  await edit(p);
+                                } else {
+                                  await delete(p);
+                                }
                               }
-                              final plan = widget.store.annualPlans
-                                  .where((p) => p.id == item.id)
-                                  .firstOrNull;
-                              if (plan == null) return;
-                              if (action == 'edit') edit(plan);
-                              if (action == 'delete') delete(plan);
+                              if (mounted) setState(() {});
                             },
                             itemBuilder: (_) => [
-                              if (!item.scheduled || !item.paid)
+                              if (!item.paid)
                                 const PopupMenuItem(
                                   value: 'edit',
                                   child: Text('Düzenle'),
                                 ),
                               const PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Sil'),
+                                child: Text('Planı sil'),
                               ),
                             ],
                           ),
                       ],
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
-          ),
-        const SizedBox(height: 7),
-        Text(
-          'Bekleyen ödemeler bakiyeni etkilemez. Ödendi olarak kaydedildiğinde giderlere eklenir.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 11,
-            height: 1.45,
-          ),
-        ),
+          );
+        }),
       ],
     );
   }
@@ -720,6 +497,7 @@ class _AnnualPlanFormState extends State<_AnnualPlanForm> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: category,
           decoration: const InputDecoration(labelText: 'Gider kategorisi'),
           items: {...widget.store.expenseCategories, category}

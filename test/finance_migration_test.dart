@@ -40,6 +40,7 @@ void main() {
         'note': '',
         'cursor': 1,
         'active': true,
+        'endDate': '2026-09-02T00:00:00.000',
       },
     ],
     'goals': [

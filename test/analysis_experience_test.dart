@@ -99,53 +99,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('annual radar saves a future plan without changing balance', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final store = FinanceStore(read: () async => null, write: (_) async {})
-      ..motion = false;
-    await tester.pumpWidget(BirikioApp(store: store));
-    await tester.tap(find.text('Analiz').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Yıllık radar'));
-    await tester.pumpAndSettle();
-    expect(find.text('Yıllık masraf radarı'), findsOneWidget);
-    await tester.tap(find.text('Planla'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Masraf adı'),
-      'Araç sigortası',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tahmini tutar'),
-      '1200',
-    );
-    await tester.ensureVisible(find.text('Planı kaydet'));
-    await tester.tap(find.text('Planı kaydet'));
-    await tester.pumpAndSettle();
-    expect(store.annualPlans.single.title, 'Araç sigortası');
-    expect(store.annualPlans.single.amount, 120000);
-    expect(store.balance, 0);
-    expect(find.text('Araç sigortası'), findsOneWidget);
-    await tester.ensureVisible(find.byTooltip('Plan seçenekleri'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Plan seçenekleri'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Düzenle').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tahmini tutar'),
-      '1500',
-    );
-    await tester.ensureVisible(find.text('Planı kaydet'));
-    await tester.tap(find.text('Planı kaydet'));
-    await tester.pumpAndSettle();
-    expect(store.annualPlans.single.amount, 150000);
-    expect(store.balance, 0);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'radar keeps legacy annual plans editable without duplicate creation buttons',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final now = DateTime.now();
+      final store = FinanceStore(read: () async => null, write: (_) async {})
+        ..motion = false;
+      store.annualPlans.add(
+        AnnualPlan(
+          id: 'legacy',
+          title: 'Araç sigortası',
+          category: 'Ulaşım',
+          amount: 120000,
+          month: now.month,
+          dueDay: 28,
+          startYear: now.year,
+        ),
+      );
+      await tester.pumpWidget(BirikioApp(store: store));
+      await tester.tap(find.text('Analiz').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Yıllık radar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Planla'), findsNothing);
+      expect(find.text('Gider ekle'), findsNothing);
+      await tester.ensureVisible(find.byTooltip('Plan seçenekleri'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Plan seçenekleri'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Düzenle'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Tahmini tutar'),
+        '1500',
+      );
+      await tester.ensureVisible(find.text('Planı kaydet'));
+      await tester.tap(find.text('Planı kaydet'));
+      await tester.pumpAndSettle();
+      expect(store.annualPlans.single.amount, 150000);
+      expect(store.balance, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

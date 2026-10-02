@@ -7,6 +7,7 @@ class RadarExpense {
   final DateTime due;
   final bool fromRule;
   final bool scheduled, paid;
+  final bool income, recorded;
   final int? period;
   final int? paidAmount;
   const RadarExpense({
@@ -18,6 +19,8 @@ class RadarExpense {
     required this.fromRule,
     this.scheduled = false,
     this.paid = false,
+    this.income = false,
+    this.recorded = false,
     this.period,
     this.paidAmount,
   });
@@ -37,7 +40,7 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
 
   final items = <RadarExpense>[
     for (final expense in store.scheduledExpenses)
-      if (!expense.income && expense.due.year == year)
+      if (expense.due.year == year)
         RadarExpense(
           id: expense.id,
           title: expense.title,
@@ -47,6 +50,7 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
           fromRule: false,
           scheduled: true,
           paid: expense.paidAt != null,
+          income: expense.income,
           paidAmount: store.entries
               .where((e) => e.id == 'scheduled:${expense.id}')
               .firstOrNull
@@ -69,7 +73,7 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
               .firstOrNull
               ?.amount,
         ),
-    for (final rule in store.rules.where((r) => !r.income))
+    for (final rule in store.rules)
       for (
         var period = firstPeriod(rule);
         period < firstPeriod(rule) + 370 &&
@@ -88,6 +92,7 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
             amount: rule.amount,
             due: rule.occurrence(period),
             fromRule: true,
+            income: rule.income,
             period: period,
             paid: store.entries.any((e) => e.id == '${rule.id}:$period'),
             paidAmount: store.entries
@@ -96,6 +101,33 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
                 ?.amount,
           ),
   ];
+  final represented = items
+      .map(
+        (item) => item.fromRule
+            ? '${item.id}:${item.period}'
+            : item.scheduled
+            ? 'scheduled:${item.id}'
+            : 'annual:${item.id}:$year',
+      )
+      .toSet();
+  for (final entry in store.entries) {
+    if (entry.date.year == year && !represented.contains(entry.id)) {
+      items.add(
+        RadarExpense(
+          id: entry.id,
+          title: entry.title,
+          category: entry.category,
+          amount: entry.amount,
+          due: entry.date,
+          fromRule: false,
+          income: entry.income,
+          recorded: true,
+          paid: true,
+          paidAmount: entry.amount,
+        ),
+      );
+    }
+  }
   items.sort((a, b) => a.due.compareTo(b.due));
   return items;
 }
