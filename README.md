@@ -97,15 +97,25 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
   </tr>
 </table>
 
-### Daha kısa erişim yolları
+### Birlikte duran bilgiler, görsel bir arayüz
 
-Anasayfadan kayıtlar ve takvim doğrudan açılır. Cüzdanda birikim ve bütçe tek sıra sekmeyle seçilir. Profilde ayarlar, kategoriler, yedekleme, geri yükleme ve CSV dışa aktarma doğrudan görünür. Formlar görünür kapatma düğmesiyle kapanır; kompakt kartlar ve daha kısa geçişler içerik için alan bırakır.
+Anasayfa, Gelir & Gider, Cüzdan, Analiz ve Profil aynı görsel dili kullanır: renkli simge yüzeyleri, mint ve mor geçişli özet kartları, yuvarlatılmış alt gezinme ve içerikle birlikte duran bölüm başlıkları. Gelir/gider ekranında ay seçimi ile o ayın toplamları aynı karttadır; gerçekleşmiş ve bekleyen işlemler kendi grupları içinde gösterilir. Profil özeti ve güncel uyarısı birlikte durur. Bütçenin harcanan, limit ve kalan değerleri aynı görsel özettedir.
+
+Anasayfadan kayıtlar ve takvim doğrudan açılır. Cüzdanda birikim ve bütçe simgeli sekmeyle seçilir. Profilde ayarlar, kategoriler ve veri yönetimi ayrı gruplardadır. Ayarlardaki yedek bağlantısı Profildeki veri yönetimini açar; aynı işlemler iki yerde tekrarlanmaz. Uzun hesaplama ve kullanım açıklamaları ilgili **ⓘ** düğmesinden açılır. Formlarda başlık, yardım ve kapatma düğmeleri içerik kaydırılırken yerinde kalır. Boş listeler yalnız metin yerine simgeli durum kartlarıyla anlatılır. Açık tema aynı gruplamayı ve renk ayrımını korur.
 
 <table>
   <tr>
     <td align="center"><strong>Bütçe</strong><br /><img src="docs/images/budget.png" alt="Cüzdandaki doğrudan bütçe görünümü" width="260" /></td>
     <td align="center"><strong>Ayarlar</strong><br /><img src="docs/images/settings.png" alt="Tema ve bildirim ayarları" width="260" /></td>
     <td align="center"><strong>Kategoriler</strong><br /><img src="docs/images/categories.png" alt="Gelir ve gider kategorilerini yönetme" width="260" /></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center"><strong>Para akışı</strong><br /><img src="docs/images/money-journey.png" alt="Gelirden gider ve birikime uzanan görsel para akışı" width="260" /></td>
+    <td align="center"><strong>Düzenli kayıt başlangıcı</strong><br /><img src="docs/images/recurring-empty.png" alt="Düzenli kayıtlar için simgeli boş durum kartı" width="260" /></td>
+    <td align="center"><strong>Birikim formu</strong><br /><img src="docs/images/goal-form.png" alt="Sabit başlıklı birikim hedefi formu" width="260" /></td>
   </tr>
 </table>
 
@@ -178,7 +188,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.1.0+3` değerini kullanır. Kurmadan önce **Profil → JSON yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.0+5` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
@@ -262,7 +272,7 @@ Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarları
 
 ### Görselleri yeniden üretme
 
-README'deki 18 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
+README'deki 21 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
 
 ```sh
 flutter test tools/capture_readme.dart --dart-define=FLUTTER_SDK=C:/flutter

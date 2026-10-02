@@ -87,6 +87,50 @@ class _AnnualRadarState extends State<AnnualRadar> {
     );
   }
 
+  Widget _totalPill(bool income, int amount) {
+    final color = income
+        ? financeColors(context).positive
+        : financeColors(context).negative;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                income ? Icons.south_west_rounded : Icons.north_east_rounded,
+                size: 14,
+                color: color,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                income ? 'Gelir' : 'Gider',
+                style: TextStyle(fontSize: 11, color: color),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '${income ? '+' : '−'} ${money(amount)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> edit([AnnualPlan? plan]) async {
     final saved = await sheet<bool>(
       context,
@@ -142,6 +186,10 @@ class _AnnualRadarState extends State<AnnualRadar> {
           (e) => e.income == income && (month == null || e.due.month == month),
         )
         .fold<int>(0, (sum, e) => sum + (e.paidAmount ?? e.amount));
+    final peak = List.generate(
+      12,
+      (i) => total(true, i + 1) + total(false, i + 1),
+    ).fold<int>(1, (a, b) => a > b ? a : b);
     final monthItems = items
         .where((e) => e.due.month == selectedMonth)
         .toList();
@@ -162,76 +210,89 @@ class _AnnualRadarState extends State<AnnualRadar> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Yıllık radar',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Gerçekleşen ve bekleyen gelir ile giderler. Ay seçerek ayrıntıları gör.',
-          style: TextStyle(fontSize: 12, height: 1.5),
-        ),
-        Row(
-          children: [
-            IconButton(
-              tooltip: 'Önceki yıl',
-              onPressed: () => setState(() => year--),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Text(
-                '$year',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Sonraki yıl',
-              onPressed: () => setState(() => year++),
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
-        ),
-        Panel(
+        FeatureCard(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                '+ ${money(total(true))}',
-                style: TextStyle(
-                  color: colors.positive,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                ),
+              Row(
+                children: [
+                  const IconBadge(Icons.calendar_month_rounded),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Eyebrow('YILIN GÖRÜNÜMÜ'),
+                        SizedBox(height: 4),
+                        Text(
+                          'Yıllık radar',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const InfoButton(
+                    title: 'Yıllık radar',
+                    message:
+                        'Gerçekleşen ve bekleyen gelir ile giderler. Ay seçerek ayrıntıları gör. Yıllık net, bekleyen planları da içerir; kullanılabilir bakiye değildir.',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Önceki yıl',
+                    onPressed: () => setState(() => year--),
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$year',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Sonraki yıl',
+                    onPressed: () => setState(() => year++),
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-              Text(
-                '− ${money(total(false))}',
-                style: TextStyle(
-                  color: colors.negative,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                ),
+              const Eyebrow('YILLIK NET'),
+              const SizedBox(height: 6),
+              Amount(
+                total(true) - total(false),
+                size: 32,
+                color: colors.accent,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Yıllık net: ${money(total(true) - total(false))}',
-                style: const TextStyle(fontSize: 12),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(child: _totalPill(true, total(true))),
+                  const SizedBox(width: 10),
+                  Expanded(child: _totalPill(false, total(false))),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         LayoutBuilder(
           builder: (context, constraints) => GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: constraints.maxWidth < 300 ? 2 : 3,
-              mainAxisExtent: 94,
+              mainAxisExtent: 108,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
@@ -241,14 +302,14 @@ class _AnnualRadarState extends State<AnnualRadar> {
               final selected = selectedMonth == m;
               return InkWell(
                 onTap: () => setState(() => selectedMonth = m),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: selected
                         ? colors.accent.withValues(alpha: .14)
                         : Theme.of(context).colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: selected ? colors.accent : Colors.transparent,
                     ),
@@ -267,10 +328,44 @@ class _AnnualRadarState extends State<AnnualRadar> {
                         ),
                       ),
                       const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: total(true, m) / peak,
+                                minHeight: 4,
+                                color: colors.positive,
+                                backgroundColor: colors.positive.withValues(
+                                  alpha: .1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: total(false, m) / peak,
+                                minHeight: 4,
+                                color: colors.negative,
+                                backgroundColor: colors.negative.withValues(
+                                  alpha: .1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '+ ${money(total(true, m))}',
+                          total(true, m) == 0
+                              ? '+ —'
+                              : '+ ${money(total(true, m))}',
                           style: TextStyle(
                             fontSize: 11,
                             color: colors.positive,
@@ -281,7 +376,9 @@ class _AnnualRadarState extends State<AnnualRadar> {
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '− ${money(total(false, m))}',
+                          total(false, m) == 0
+                              ? '− —'
+                              : '− ${money(total(false, m))}',
                           style: TextStyle(
                             fontSize: 11,
                             color: colors.negative,
@@ -296,17 +393,23 @@ class _AnnualRadarState extends State<AnnualRadar> {
           ),
         ),
         const SizedBox(height: 20),
-        Text(
-          '${months[selectedMonth - 1]} · ${monthItems.length} kayıt',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        SectionCard(
+          title: '${months[selectedMonth - 1]} · ${monthItems.length} kayıt',
+          icon: Icons.view_agenda_outlined,
+          child: Row(
+            children: [
+              Expanded(child: _totalPill(true, total(true, selectedMonth))),
+              const SizedBox(width: 10),
+              Expanded(child: _totalPill(false, total(false, selectedMonth))),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         if (monthItems.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text(
-              'Bu ay için kayıt yok. Yeni gelir veya gider için uygulamanın + düğmesini kullan.',
-            ),
+          const EmptyState(
+            title: 'Bu ay için kayıt yok',
+            subtitle: 'Gelir ve giderlerin burada bir araya gelecek.',
+            icon: Icons.event_available_outlined,
           ),
         ...monthItems.map((item) {
           final rule = item.fromRule
@@ -328,6 +431,14 @@ class _AnnualRadarState extends State<AnnualRadar> {
                 children: [
                   Row(
                     children: [
+                      IconBadge(
+                        item.income
+                            ? Icons.south_west_rounded
+                            : Icons.north_east_rounded,
+                        color: item.income ? colors.positive : colors.negative,
+                        size: 34,
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           item.title,

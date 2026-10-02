@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:birikio/data/store.dart';
 import 'package:birikio/ui/app.dart';
+import 'package:birikio/ui/widgets.dart';
 
 // The test runner uses Ahem for unspecified fonts. Match device typography.
 class DocumentationApp extends BirikioApp {
@@ -230,6 +231,9 @@ void main() {
     await tester.tap(find.text('Analiz').last);
     await tester.pumpAndSettle();
     await capture('analysis');
+    await tester.tap(find.text('Para akışı'));
+    await tester.pumpAndSettle();
+    await capture('money-journey');
     await tester.tap(find.text('Cüzdan').last);
     await tester.pumpAndSettle();
     await capture('wallet');
@@ -250,10 +254,26 @@ void main() {
     await tester.tap(find.text('Düzenli'));
     await tester.pumpAndSettle();
     await capture('recurring');
+    final originalRules = store.rules.toList();
+    await store.change(() => store.rules.clear());
+    await tester.pumpAndSettle();
+    await capture('recurring-empty');
+    await store.change(() => store.rules.addAll(originalRules));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Yıllık radar'));
     await tester.tap(find.text('Yıllık radar'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.textContaining('Gerçekleşen ve bekleyen'));
+    await Scrollable.ensureVisible(
+      tester.element(
+        find
+            .ancestor(
+              of: find.byTooltip('Yıllık radar hakkında'),
+              matching: find.byType(FeatureCard),
+            )
+            .first,
+      ),
+      alignment: 0,
+    );
     await tester.pumpAndSettle();
     await capture('annual-radar');
     await Scrollable.ensureVisible(
@@ -286,6 +306,13 @@ void main() {
     await tester.ensureVisible(find.text('Bitiş tarihi yok'));
     await tester.pumpAndSettle();
     await capture('regular-payment-form');
+    await tester.tap(find.byTooltip('Pencereyi kapat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Yeni kayıt ekle'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Birikim hedefi ekle'));
+    await tester.pumpAndSettle();
+    await capture('goal-form');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

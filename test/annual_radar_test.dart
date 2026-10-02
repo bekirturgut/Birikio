@@ -33,7 +33,7 @@ void main() {
     await tester.ensureVisible(find.text('Yıllık radar'));
     await tester.tap(find.text('Yıllık radar'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Gerçekleşen ve bekleyen'), findsOneWidget);
+    expect(find.byTooltip('Yıllık radar hakkında'), findsOneWidget);
     expect(store.balance, 0);
     expect(tester.takeException(), isNull);
   });

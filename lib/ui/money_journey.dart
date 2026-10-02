@@ -170,11 +170,22 @@ class MoneyJourneyCard extends StatelessWidget {
         ),
       );
     }
-    return Panel(
+    return FeatureCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('PARANIN YOLCULUĞU'),
+          const Row(
+            children: [
+              IconBadge(Icons.route_rounded, size: 36),
+              SizedBox(width: 10),
+              Expanded(child: Eyebrow('PARANIN YOLCULUĞU')),
+              InfoButton(
+                title: 'Akış hesabı',
+                message:
+                    'Akışa dokunarak kayıtları açabilirsin. Birikime yatırma gider, birikimden çekme gelir sayılmaz. Akışlar dönem toplamıdır; belirli bir gelirin hangi gideri ödediği varsayılmaz.',
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           const Text(
             'Nereden geldi, nereye aktı?',
@@ -338,14 +349,6 @@ class MoneyJourneyCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Birikime yatırma gider, birikimden çekme gelir sayılmaz. Akışlar dönem toplamıdır; belirli bir gelirin hangi gideri ödediği varsayılmaz.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
         ],
       ),
     );

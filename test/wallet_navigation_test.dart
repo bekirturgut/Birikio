@@ -28,7 +28,7 @@ void main() {
     await tester.pumpWidget(BirikioApp(store: store));
     await tester.tap(find.text('Cüzdan').last);
     await tester.pumpAndSettle();
-    expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsOneWidget);
+    expect(find.text('BİRİKİM CÜZDANI'), findsOneWidget);
     tester
         .widget<InkWell>(
           find
@@ -40,8 +40,8 @@ void main() {
         )
         .onTap!();
     await tester.pumpAndSettle();
-    expect(find.text('AYLIK HARCAMA PLANI'), findsOneWidget);
-    expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsNothing);
+    expect(find.text('AYLIK PLAN'), findsOneWidget);
+    expect(find.text('BİRİKİM CÜZDANI'), findsNothing);
     tester
         .widget<InkWell>(
           find
@@ -53,8 +53,8 @@ void main() {
         )
         .onTap!();
     await tester.pumpAndSettle();
-    expect(find.text('HAYALLERİNE AYIRDIĞIN'), findsOneWidget);
-    expect(find.text('AYLIK HARCAMA PLANI'), findsNothing);
+    expect(find.text('BİRİKİM CÜZDANI'), findsOneWidget);
+    expect(find.text('AYLIK PLAN'), findsNothing);
   });
 
   testWidgets('bottom navigation wave follows tab direction', (tester) async {

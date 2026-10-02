@@ -47,14 +47,172 @@ class Panel extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     color: color ?? Theme.of(context).colorScheme.surfaceContainer,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(24),
       side: BorderSide(
-        color: Theme.of(context).dividerColor.withValues(alpha: .08),
+        color: Theme.of(context).dividerColor.withValues(alpha: .06),
       ),
     ),
     clipBehavior: Clip.antiAlias,
     child: Padding(padding: padding, child: child),
   );
+}
+
+class IconBadge extends StatelessWidget {
+  final IconData icon;
+  final Color? color;
+  final double size;
+  const IconBadge(this.icon, {super.key, this.color, this.size = 44});
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? financeColors(context).accent;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [tint.withValues(alpha: .22), tint.withValues(alpha: .06)],
+        ),
+        borderRadius: BorderRadius.circular(size * .32),
+        border: Border.all(color: tint.withValues(alpha: .18)),
+      ),
+      child: Icon(icon, color: tint, size: size * .48),
+    );
+  }
+}
+
+class InfoButton extends StatelessWidget {
+  final String title, message;
+  const InfoButton({super.key, required this.title, required this.message});
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: '$title hakkında',
+    icon: const Icon(Icons.info_outline_rounded, size: 19),
+    onPressed: () => showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Anladım'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// A section owns its heading, supporting information and related content.
+class SectionCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Widget? action;
+  final Color? color;
+  const SectionCard({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.action,
+    this.color,
+  });
+  @override
+  Widget build(BuildContext context) => Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            IconBadge(icon, color: color, size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ?action,
+          ],
+        ),
+        const SizedBox(height: 16),
+        child,
+      ],
+    ),
+  );
+}
+
+class FeatureCard extends StatelessWidget {
+  final Widget child;
+  final Color? color;
+  const FeatureCard({super.key, required this.child, this.color});
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? financeColors(context).accent;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+              tint.withValues(alpha: dark ? .2 : .14),
+              Theme.of(context).colorScheme.surfaceContainer,
+            ),
+            Theme.of(context).colorScheme.surfaceContainer,
+          ],
+        ),
+        border: Border.all(color: tint.withValues(alpha: .2)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -45,
+            top: -55,
+            child: Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: tint.withValues(alpha: .08),
+                  width: 28,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 35,
+            bottom: -70,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: tint.withValues(alpha: .06),
+                  width: 1,
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: Padding(padding: const EdgeInsets.all(20), child: child),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class Eyebrow extends StatelessWidget {
@@ -115,28 +273,53 @@ class EmptyState extends StatelessWidget {
     this.icon = Icons.event_note_outlined,
   });
   @override
-  Widget build(BuildContext context) => Panel(
+  Widget build(BuildContext context) => FeatureCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: financeColors(context).accent, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+        Center(
+          child: SizedBox(
+            width: 100,
+            height: 88,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: financeColors(
+                        context,
+                      ).accent.withValues(alpha: .14),
+                    ),
+                  ),
                 ),
-              ),
+                IconBadge(icon, size: 60),
+                Positioned(
+                  right: 4,
+                  top: 5,
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 16,
+                    color: financeColors(context).gold,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
         Text(
           subtitle,
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             height: 1.5,
@@ -145,7 +328,7 @@ class EmptyState extends StatelessWidget {
         ),
         if (action != null && onTap != null)
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: Alignment.center,
             child: TextButton(onPressed: onTap, child: Text(action!)),
           ),
       ],

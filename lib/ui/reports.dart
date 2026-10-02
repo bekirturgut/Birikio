@@ -62,83 +62,111 @@ class _BudgetPageState extends State<BudgetPage> {
           ],
         ),
         SizedBox(height: 20),
-        Panel(
+        FeatureCard(
+          color: financeColors(context).positive,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Eyebrow('AYLIK HARCAMA PLANI'),
-              SizedBox(height: 24),
-              Center(
-                child: SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox.expand(
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(
-                            end: limit == 0 ? 0 : (spent / limit).clamp(0, 1),
+              Row(
+                children: [
+                  IconBadge(
+                    Icons.donut_large_rounded,
+                    color: financeColors(context).positive,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Eyebrow('AYLIK PLAN'),
+                        SizedBox(height: 4),
+                        Text(
+                          'Harcama bütçen',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
                           ),
-                          duration: Duration(
-                            milliseconds:
-                                MediaQuery.disableAnimationsOf(context)
-                                ? 0
-                                : 800,
-                          ),
-                          builder: (_, value, _) => CircularProgressIndicator(
-                            value: value,
-                            strokeWidth: 9,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const InfoButton(
+                    title: 'Bütçe hesabı',
+                    message:
+                        'Genel limit ve kategori limitleri ayrı planlardır; kategori limitlerinin toplamı genel limiti değiştirmez. Kategori limiti olmayan giderler de genel harcamaya dahildir. Bütçeler bakiyeni değiştirmez.',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 84,
+                    height: 84,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: limit == 0 ? 0 : (spent / limit).clamp(0, 1),
+                            strokeWidth: 7,
                             strokeCap: StrokeCap.round,
                             color: spent > limit && limit > 0
                                 ? financeColors(context).negative
                                 : financeColors(context).positive,
-                            backgroundColor: lavender.withValues(alpha: .12),
+                            backgroundColor: financeColors(
+                              context,
+                            ).positive.withValues(alpha: .12),
                           ),
                         ),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            limit == 0
-                                ? '—'
-                                : '%${(spent / limit * 100).round()}',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        Text(
+                          limit == 0
+                              ? '—'
+                              : '%${(spent / limit * 100).round()}',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
                           ),
-                          Text(
-                            'bütçe kullanımı',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Eyebrow('HARCANAN'),
+                        const SizedBox(height: 6),
+                        Amount(
+                          spent,
+                          size: 26,
+                          color: financeColors(context).negative,
+                        ),
+                        const SizedBox(height: 5),
+                        const Text('bu ay', style: TextStyle(fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 28),
-              Text(
-                'Harcanan',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: _budgetMetric('Limit', limit)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _budgetMetric(
+                      spent > limit && limit > 0 ? 'Aşım' : 'Kalan',
+                      limit == 0 ? 0 : (limit - spent).abs(),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 6),
-              Amount(spent, color: financeColors(context).negative),
-              SizedBox(height: 18),
-              Text(
-                limit == 0
-                    ? 'Bu ay için henüz bir limit belirlemedin.'
-                    : 'Limit: ${money(limit)}\n${spent > limit ? 'Aşım' : 'Kalan'}: ${money((limit - spent).abs())}',
-                style: TextStyle(height: 1.7, fontSize: 13),
-              ),
-              SizedBox(height: 24),
+              const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: () => editBudget(limit),
-                icon: Icon(Icons.tune_rounded, size: 18),
+                icon: const Icon(Icons.tune_rounded, size: 18),
                 label: Text(
                   limit == 0 ? 'Aylık limit belirle' : 'Limiti düzenle',
                 ),
@@ -147,106 +175,130 @@ class _BudgetPageState extends State<BudgetPage> {
           ),
         ),
         SizedBox(height: 18),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Kategori bütçeleri',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () => editCategoryBudget(),
-              icon: const Icon(Icons.add_rounded, size: 17),
-              label: const Text('Ekle'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (categoryLimits.isEmpty)
-          Panel(
-            child: Text(
-              'Henüz kategori limiti yok. Harcamalarını kategori kategori planlayabilirsin.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )
-        else
-          ...categoryLimits.entries.map((item) {
-            final used = s.categorySpent(selected, item.key);
-            final exceeded = used > item.value;
-            final color = exceeded
-                ? financeColors(context).negative
-                : financeColors(context).positive;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        SectionCard(
+          title: 'Kategori bütçeleri',
+          icon: Icons.category_outlined,
+          action: TextButton.icon(
+            onPressed: () => editCategoryBudget(),
+            icon: const Icon(Icons.add_rounded, size: 17),
+            label: const Text('Ekle'),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (categoryLimits.isEmpty)
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.key,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                    const IconBadge(Icons.pie_chart_outline_rounded, size: 40),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Henüz kategori limiti yok',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        IconButton(
-                          tooltip: '${item.key} limitini düzenle',
-                          onPressed: () => editCategoryBudget(
-                            category: item.key,
-                            current: item.value,
-                          ),
-                          icon: const Icon(Icons.tune_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '${money(used)} / ${money(item.value)} · %${(used / item.value * 100).round()}',
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: (used / item.value).clamp(0, 1),
-                        minHeight: 8,
-                        color: color,
-                        backgroundColor: color.withValues(alpha: .12),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      exceeded
-                          ? '${money(used - item.value)} aşıldı'
-                          : '${money(item.value - used)} kaldı',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ),
-              ),
-            );
-          }),
-        const SizedBox(height: 14),
-        Text(
-          'Genel limit ve kategori limitleri ayrı planlardır; kategori limitlerinin toplamı genel limiti değiştirmez. Kategori limiti olmayan giderler de genel harcamaya dahildir. Bütçeler bakiyeni değiştirmez.',
-          style: TextStyle(fontSize: 12, height: 1.7),
+                )
+              else
+                ...categoryLimits.entries.map((item) {
+                  final used = s.categorySpent(selected, item.key);
+                  final exceeded = used > item.value;
+                  final color = exceeded
+                      ? financeColors(context).negative
+                      : financeColors(context).positive;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Panel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.key,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: '${item.key} limitini düzenle',
+                                onPressed: () => editCategoryBudget(
+                                  category: item.key,
+                                  current: item.value,
+                                ),
+                                icon: const Icon(Icons.tune_rounded),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${money(used)} / ${money(item.value)} · %${(used / item.value * 100).round()}',
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: (used / item.value).clamp(0, 1),
+                              minHeight: 8,
+                              color: color,
+                              backgroundColor: color.withValues(alpha: .12),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            exceeded
+                                ? '${money(used - item.value)} aşıldı'
+                                : '${money(item.value - used)} kaldı',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
         ),
       ],
     );
   }
+
+  Widget _budgetMetric(String label, int amount) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: .65),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Amount(amount, size: 17),
+      ],
+    ),
+  );
 
   Future<void> editCategoryBudget({String? category, int? current}) async {
     final availableCategories = widget.store.expenseCategories
@@ -674,16 +726,30 @@ class _AnalysisPageState extends State<AnalysisPage> {
                               : Colors.transparent,
                         ),
                       ),
-                      child: Text(
-                        ['Özet', 'Para akışı', 'Yıllık radar'][i],
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: view == i
-                              ? financeColors(context).accent
-                              : null,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            [
+                              Icons.insights_rounded,
+                              Icons.route_rounded,
+                              Icons.calendar_month_rounded,
+                            ][i],
+                            size: 19,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            ['Özet', 'Para akışı', 'Yıllık radar'][i],
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: view == i
+                                  ? financeColors(context).accent
+                                  : null,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -821,11 +887,22 @@ class _AnalysisPageState extends State<AnalysisPage> {
               ],
               if (view == 2) AnnualRadar(store: widget.store),
               if (view == 0) ...[
-                Panel(
+                FeatureCard(
+                  color: financeColors(context).positive,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Eyebrow('DÖNEMİN ÖZETİ'),
+                      Row(
+                        children: [
+                          IconBadge(
+                            Icons.insights_rounded,
+                            color: financeColors(context).positive,
+                            size: 36,
+                          ),
+                          const SizedBox(width: 10),
+                          const Eyebrow('DÖNEMİN ÖZETİ'),
+                        ],
+                      ),
                       SizedBox(height: 12),
                       Amount(
                         income - expense,

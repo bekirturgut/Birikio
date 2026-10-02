@@ -141,10 +141,12 @@ void main() {
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
     expect(find.text('Bu ay dikkat et'), findsOneWidget);
-    final expected = now.day == 1 ? 'Şimdilik dikkat' : 'eksik yatırdın';
+    final expected = now.day == 1 ? 'Her şey yolunda' : 'eksik yatırdın';
     expect(find.textContaining(expected), findsOneWidget);
-    await tester.ensureVisible(find.textContaining(expected));
-    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    await Scrollable.ensureVisible(
+      tester.element(find.textContaining(expected)),
+      alignment: .5,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining(expected));
     await tester.pumpAndSettle();

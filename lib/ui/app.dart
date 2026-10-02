@@ -59,14 +59,15 @@ class BirikioApp extends StatelessWidget {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: dark ? ink : const Color(0xFFF2F4F8),
+        fillColor: dark ? const Color(0xFF111827) : const Color(0xFFF3F5FA),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 14,
+          vertical: 18,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -506,6 +507,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
+                                IconBadge(
+                                  [
+                                    Icons.space_dashboard_rounded,
+                                    Icons.swap_vert_rounded,
+                                    Icons.account_balance_wallet_outlined,
+                                    Icons.insights_rounded,
+                                    Icons.person_outline_rounded,
+                                  ][page],
+                                  size: 46,
+                                ),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -516,13 +528,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                                             ? dateLabel(
                                                 DateTime.now(),
                                               ).toUpperCase()
-                                            : 'BIRIKIO',
+                                            : [
+                                                'GENEL BAKIŞ',
+                                                'PARA HAREKETLERİ',
+                                                'BİRİKİM VE PLAN',
+                                                'FİNANSAL GÖRÜNÜM',
+                                                'KİŞİSEL ALAN',
+                                              ][page],
                                       ),
                                       SizedBox(height: 8),
                                       Text(
                                         titles[page],
                                         style: TextStyle(
-                                          fontSize: 25,
+                                          fontSize: 23,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: -1,
                                         ),
@@ -598,7 +616,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         bottomNavigationBar: SafeArea(
           top: false,
           child: Container(
+            margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
               color: Theme.of(context).colorScheme.surfaceContainer,
               border: Border(
                 top: BorderSide(
@@ -1418,12 +1438,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             ),
           ),
         const SizedBox(height: 8),
-        Text(
-          'Gelir–gider %25 · Birikim hareketleri %20 · Aylık birikim sözü %15 · Faturalar %15 · Bütçe %15 · Gelir düzeni %10 · Aylık gidişat %7 · Bakiye %5 · Harcama dağılımı %3. Veri olmayan alanlar puana katılmaz; kalan ağırlıklar yeniden dağıtılır.',
-          style: TextStyle(
-            fontSize: 11,
-            height: 1.5,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        const SectionCard(
+          title: 'Puan nasıl hesaplanır?',
+          icon: Icons.calculate_outlined,
+          action: InfoButton(
+            title: 'Puan ağırlıkları',
+            message:
+                'Gelir–gider %25 · Birikim hareketleri %20 · Aylık birikim sözü %15 · Faturalar %15 · Bütçe %15 · Gelir düzeni %10 · Aylık gidişat %7 · Bakiye %5 · Harcama dağılımı %3. Veri olmayan alanlar puana katılmaz; kalan ağırlıklar yeniden dağıtılır.',
+          ),
+          child: Text(
+            'Yalnızca kayıt bulunan alanlar değerlendirilir.',
+            style: TextStyle(fontSize: 12),
           ),
         ),
       ],
@@ -2037,24 +2062,48 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               backgroundColor: selected == i
                   ? Theme.of(context).colorScheme.primary.withValues(alpha: .15)
                   : Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
             onPressed: () => onChanged(i),
-            child: Text(
-              labels[i],
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected == i ? FontWeight.w800 : FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_tabIcon(labels[i]), size: 16),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    labels[i],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: selected == i
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     ),
   );
+
+  IconData _tabIcon(String label) => switch (label) {
+    'Kayıtlar' => Icons.receipt_long_rounded,
+    'Yıllık radar' => Icons.calendar_month_rounded,
+    'Düzenli' => Icons.autorenew_rounded,
+    'Gelirler' => Icons.south_west_rounded,
+    'Giderler' => Icons.north_east_rounded,
+    'Birikim' => Icons.savings_outlined,
+    'Bütçe' => Icons.donut_large_rounded,
+    _ => Icons.grid_view_rounded,
+  };
 
   List<Widget> entryPage() {
     final colors = financeColors(context);
@@ -2137,18 +2186,65 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (entryView == 2) {
       return [
         ...prefix,
-        const Text(
-          'Düzenli gelir ve ödemeler',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Seriyi durdurabilir, bitiş tarihini değiştirebilir veya geçmiş kayıtlarını koruyarak silebilirsin.',
+        FeatureCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const IconBadge(Icons.autorenew_rounded, size: 48),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Düzenli gelir ve ödemeler',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const InfoButton(
+                    title: 'Düzenli kayıtlar',
+                    message:
+                        'Seriyi durdurabilir, bitiş tarihini değiştirebilir veya geçmiş kayıtlarını koruyarak silebilirsin. Yeni seri için + düğmesindeki gelir veya gider formunda tekrarlama seç.',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _profileMetric(
+                      '${s.rules.where((r) => r.active).length}',
+                      'Aktif seri',
+                      Icons.play_circle_outline,
+                    ),
+                  ),
+                  Expanded(
+                    child: _profileMetric(
+                      '${s.rules.where((r) => r.income).length}',
+                      'Gelir',
+                      Icons.south_west_rounded,
+                    ),
+                  ),
+                  Expanded(
+                    child: _profileMetric(
+                      '${s.rules.where((r) => !r.income).length}',
+                      'Ödeme',
+                      Icons.north_east_rounded,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         if (s.rules.isEmpty)
-          const Text(
-            'Henüz düzenli kayıt yok. + düğmesinden gelir veya gider ekleyip tekrarlama seçebilirsin.',
+          const EmptyState(
+            title: 'Henüz düzenli kayıt yok',
+            subtitle: '+ menüsünden gelir veya gider ekleyip tekrarlama seç.',
+            icon: Icons.autorenew_rounded,
           ),
         ...s.rules.map((r) => r.isBill ? billCard(r) : regularRecordCard(r)),
       ];
@@ -2161,67 +2257,85 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         .fold<int>(0, (v, e) => v + e.amount);
     return [
       ...prefix,
-      Row(
-        children: [
-          IconButton(
-            tooltip: 'Önceki ay',
-            onPressed: () => setState(() {
-              entryAllMonths = false;
-              entryMonth = DateTime(entryMonth.year, entryMonth.month - 1);
-            }),
-            icon: const Icon(Icons.chevron_left_rounded),
-          ),
-          Expanded(
-            child: Text(
-              entryAllMonths
-                  ? 'Tüm kayıtlar'
-                  : '${const ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][entryMonth.month - 1]} ${entryMonth.year}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Sonraki ay',
-            onPressed: () => setState(() {
-              entryAllMonths = false;
-              entryMonth = DateTime(entryMonth.year, entryMonth.month + 1);
-            }),
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
-      ),
-      Center(
-        child: TextButton.icon(
-          onPressed: () => setState(() => entryAllMonths = !entryAllMonths),
-          icon: Icon(
-            entryAllMonths
-                ? Icons.calendar_month_outlined
-                : Icons.history_rounded,
-            size: 17,
-          ),
-          label: Text(entryAllMonths ? 'Ay ay göster' : 'Tüm kayıtları göster'),
-        ),
-      ),
-      const SizedBox(height: 8),
-      Panel(
-        child: Row(
+      FeatureCard(
+        color: colors.positive,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: _entrySummaryMetric(
-                'GELİR',
-                income,
-                colors.positive,
-                Icons.south_west_rounded,
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Önceki ay',
+                  onPressed: () => setState(() {
+                    entryAllMonths = false;
+                    entryMonth = DateTime(
+                      entryMonth.year,
+                      entryMonth.month - 1,
+                    );
+                  }),
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Text(
+                    entryAllMonths
+                        ? 'Tüm kayıtlar'
+                        : '${const ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][entryMonth.month - 1]} ${entryMonth.year}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Sonraki ay',
+                  onPressed: () => setState(() {
+                    entryAllMonths = false;
+                    entryMonth = DateTime(
+                      entryMonth.year,
+                      entryMonth.month + 1,
+                    );
+                  }),
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+            Center(
+              child: TextButton.icon(
+                onPressed: () =>
+                    setState(() => entryAllMonths = !entryAllMonths),
+                icon: Icon(
+                  entryAllMonths
+                      ? Icons.calendar_month_outlined
+                      : Icons.history_rounded,
+                  size: 17,
+                ),
+                label: Text(
+                  entryAllMonths ? 'Ay ay göster' : 'Tüm kayıtları göster',
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _entrySummaryMetric(
-                'GİDER',
-                expense,
-                colors.negative,
-                Icons.north_east_rounded,
-              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _entrySummaryMetric(
+                    'GELİR',
+                    income,
+                    colors.positive,
+                    Icons.south_west_rounded,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _entrySummaryMetric(
+                    'GİDER',
+                    expense,
+                    colors.negative,
+                    Icons.north_east_rounded,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2303,20 +2417,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ),
       ),
       const SizedBox(height: 12),
-      if (pending.isNotEmpty) ...[
-        const Text(
-          'Bekleyen kayıtlar',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        ...pending.map(pendingRecordCard),
-        const SizedBox(height: 12),
-      ],
       if (data.isNotEmpty)
-        Panel(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+        SectionCard(
+          title: 'Gerçekleşen kayıtlar',
+          icon: Icons.receipt_long_rounded,
           child: Column(children: data.map(entryTile).toList()),
         ),
+      if (pending.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        SectionCard(
+          title: 'Bekleyen kayıtlar',
+          icon: Icons.schedule_rounded,
+          child: Column(children: pending.map(pendingRecordCard).toList()),
+        ),
+      ],
       if (data.isEmpty && pending.isEmpty)
         EmptyState(
           title: filtered
@@ -2347,7 +2461,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   Widget pendingRecordCard(ScheduledExpense p) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Panel(
+    child: Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2896,11 +3010,32 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
   List<Widget> goalPage() => [
-    Panel(
+    FeatureCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Eyebrow('HAYALLERİNE AYIRDIĞIN'),
+          Row(
+            children: [
+              const IconBadge(Icons.savings_outlined),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Eyebrow('BİRİKİM CÜZDANI'),
+                    SizedBox(height: 4),
+                    Text(
+                      'Hayallerine ayırdığın',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: 12),
           Amount(s.savings, color: financeColors(context).accent, size: 34),
           SizedBox(height: 8),
@@ -3001,90 +3136,181 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final colors = financeColors(context);
     final health = financialHealthReport(s, DateTime.now());
     return [
-      Panel(
-        child: Row(
+      FeatureCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Icons.person_outline_rounded, color: colors.accent, size: 32),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Senin alanın',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                const IconBadge(Icons.person_rounded, size: 56),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Eyebrow('KİŞİSEL ALAN'),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Senin alanın',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${s.entries.length} kayıt · ${s.goals.length} hedef',
-                    style: const TextStyle(fontSize: 12),
+                ),
+                IconBadge(
+                  Icons.verified_user_outlined,
+                  color: colors.positive,
+                  size: 36,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _profileMetric(
+                    '${s.entries.length}',
+                    'Kayıt',
+                    Icons.receipt_long_rounded,
                   ),
-                ],
+                ),
+                Expanded(
+                  child: _profileMetric(
+                    '${s.goals.length}',
+                    'Hedef',
+                    Icons.flag_rounded,
+                  ),
+                ),
+                Expanded(
+                  child: _profileMetric(
+                    'Yerel',
+                    'Veri saklama',
+                    Icons.lock_outline_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Material(
+              color: colors.accent.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                leading: Icon(
+                  Icons.tips_and_updates_outlined,
+                  color: colors.accent,
+                ),
+                title: const Text(
+                  'Bu ay dikkat et',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  health.attention ?? 'Her şey yolunda',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => showHealthDetails(health),
               ),
             ),
           ],
         ),
       ),
-      const SizedBox(height: 16),
-      Panel(
-        padding: EdgeInsets.zero,
+      const SizedBox(height: 18),
+      SectionCard(
+        title: 'Uygulama tercihleri',
+        icon: Icons.tune_rounded,
         child: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.tune_rounded),
+              contentPadding: EdgeInsets.zero,
+              leading: const IconBadge(Icons.settings_outlined, size: 38),
               title: const Text('Ayarlar'),
-              subtitle: const Text('Bildirimler, tema ve widget'),
-              trailing: const Icon(Icons.chevron_right),
+              subtitle: const Text('Tema, bildirim ve widget'),
+              trailing: const Icon(Icons.chevron_right_rounded),
               onTap: settings,
             ),
-            const Divider(height: 1),
+            const Divider(height: 20),
             ListTile(
-              leading: const Icon(Icons.category_outlined),
+              contentPadding: EdgeInsets.zero,
+              leading: IconBadge(
+                Icons.category_outlined,
+                color: colors.positive,
+                size: 38,
+              ),
               title: const Text('Kategoriler'),
-              subtitle: const Text('Gelir ve gider kategorilerini düzenle'),
-              trailing: const Icon(Icons.chevron_right),
+              subtitle: const Text('Gelir ve gider grupları'),
+              trailing: const Icon(Icons.chevron_right_rounded),
               onTap: manageCategories,
             ),
           ],
         ),
       ),
-      heading('Bu ay dikkat et'),
-      Panel(
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.tips_and_updates_outlined, color: colors.accent),
-          title: Text(
-            health.attention ??
-                'Şimdilik dikkat gerektiren bir durum görünmüyor.',
-            style: const TextStyle(fontSize: 13),
-          ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => showHealthDetails(health),
+      const SizedBox(height: 18),
+      SectionCard(
+        title: 'Verilerim ve gizlilik',
+        icon: Icons.shield_outlined,
+        action: const InfoButton(
+          title: 'Yerel veriler',
+          message:
+              'Kayıtların bu cihazda saklanır. Güncellemeden önce JSON yedek al; uygulamayı kaldırmak veya verilerini temizlemek kayıtlarını silebilir.',
         ),
-      ),
-      heading('Verilerim ve gizlilik'),
-      Panel(
-        padding: EdgeInsets.zero,
         child: Column(
           children: [
-            ListTile(
-              leading: const Icon(Icons.save_alt_rounded),
-              title: const Text('Yedek oluştur'),
-              subtitle: Text(
-                s.lastBackupAt == null
-                    ? 'Henüz yedek oluşturulmadı.'
-                    : 'Son yedek: ${dateLabel(s.lastBackupAt!.toLocal())}',
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.positive.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(14),
               ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cloud_off_rounded,
+                    color: colors.positive,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      s.lastBackupAt == null
+                          ? 'Henüz yedek oluşturulmadı.'
+                          : 'Son yedek: ${dateLabel(s.lastBackupAt!.toLocal())}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: IconBadge(
+                Icons.save_alt_rounded,
+                color: colors.positive,
+                size: 38,
+              ),
+              title: const Text('Yedek oluştur'),
+              trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => exportData(csv: false),
             ),
             ListTile(
-              leading: const Icon(Icons.restore_rounded),
+              contentPadding: EdgeInsets.zero,
+              leading: const IconBadge(Icons.restore_rounded, size: 38),
               title: const Text('Geri yükle'),
+              trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => importData(context),
             ),
             ListTile(
-              leading: const Icon(Icons.table_chart_outlined),
+              contentPadding: EdgeInsets.zero,
+              leading: const IconBadge(Icons.table_chart_outlined, size: 38),
               title: const Text('İşlemleri CSV dışa aktar'),
+              trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => exportData(csv: true),
             ),
           ],
@@ -3092,6 +3318,29 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
     ];
   }
+
+  Widget _profileMetric(String value, String label, IconData icon) => Column(
+    children: [
+      Icon(
+        icon,
+        size: 17,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      const SizedBox(height: 6),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 3),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
 
   void manageCategories() => sheet(
     context,
@@ -3102,78 +3351,101 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             'Adı değiştirince ilişkili kayıtlar ve tekrarlar güncellenir. Silinen kategorinin geçmiş kayıtları korunur.',
         children: [
           for (final income in [true, false]) ...[
-            Text(
-              income ? 'Gelir kategorileri' : 'Gider kategorileri',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            for (final name in [...s.categoriesFor(income)])
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(name),
-                trailing: Wrap(
-                  spacing: 0,
-                  children: [
-                    IconButton(
-                      tooltip: '$name düzenle',
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () async {
-                        final next = await categoryNameDialog(name);
-                        if (next == null) return;
-                        try {
-                          await s.change(
-                            () => s.renameCategory(income, name, next),
-                          );
-                          update(() {});
-                          if (mounted) setState(() {});
-                        } catch (_) {
-                          toast(
-                            'Kategori adı değiştirilemedi. Adı kontrol et.',
-                          );
-                        }
-                      },
-                    ),
-                    IconButton(
-                      tooltip: '$name sil',
-                      icon: Icon(
-                        Icons.delete_outline_rounded,
-                        color: financeColors(context).negative,
+            SectionCard(
+              title: income ? 'Gelir kategorileri' : 'Gider kategorileri',
+              icon: income
+                  ? Icons.south_west_rounded
+                  : Icons.north_east_rounded,
+              color: income
+                  ? financeColors(context).positive
+                  : financeColors(context).negative,
+              child: Column(
+                children: [
+                  for (final name in [...s.categoriesFor(income)])
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: IconBadge(
+                        Icons.sell_outlined,
+                        size: 30,
+                        color: income
+                            ? financeColors(context).positive
+                            : financeColors(context).negative,
                       ),
-                      onPressed: () async {
-                        final ok = await confirm(
-                          dialogContext,
-                          'Kategori silinsin mi?',
-                          '$name yeni kayıtlarda görünmeyecek. Eski işlemler ve tekrarlar kendi kategori adıyla kalacak.',
-                        );
-                        if (!ok) return;
-                        try {
-                          await s.change(() => s.removeCategory(income, name));
-                          update(() {});
-                          if (mounted) setState(() {});
-                        } catch (_) {
-                          toast('Kategori silinemedi.');
-                        }
-                      },
+                      title: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: Wrap(
+                        spacing: 0,
+                        children: [
+                          IconButton(
+                            tooltip: '$name düzenle',
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () async {
+                              final next = await categoryNameDialog(name);
+                              if (next == null) return;
+                              try {
+                                await s.change(
+                                  () => s.renameCategory(income, name, next),
+                                );
+                                update(() {});
+                                if (mounted) setState(() {});
+                              } catch (_) {
+                                toast(
+                                  'Kategori adı değiştirilemedi. Adı kontrol et.',
+                                );
+                              }
+                            },
+                          ),
+                          IconButton(
+                            tooltip: '$name sil',
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: financeColors(context).negative,
+                            ),
+                            onPressed: () async {
+                              final ok = await confirm(
+                                dialogContext,
+                                'Kategori silinsin mi?',
+                                '$name yeni kayıtlarda görünmeyecek. Eski işlemler ve tekrarlar kendi kategori adıyla kalacak.',
+                              );
+                              if (!ok) return;
+                              try {
+                                await s.change(
+                                  () => s.removeCategory(income, name),
+                                );
+                                update(() {});
+                                if (mounted) setState(() {});
+                              } catch (_) {
+                                toast('Kategori silinemedi.');
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final name = await categoryNameDialog();
+                      if (name == null) return;
+                      try {
+                        await s.change(() => s.addCategory(income, name));
+                        update(() {});
+                        if (mounted) setState(() {});
+                      } catch (_) {
+                        toast('Kategori eklenemedi. Adı kontrol et.');
+                      }
+                    },
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Kategori ekle'),
+                  ),
+                ],
               ),
-            TextButton.icon(
-              onPressed: () async {
-                final name = await categoryNameDialog();
-                if (name == null) return;
-                try {
-                  await s.change(() => s.addCategory(income, name));
-                  update(() {});
-                  if (mounted) setState(() {});
-                } catch (_) {
-                  toast('Kategori eklenemedi. Adı kontrol et.');
-                }
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Kategori ekle'),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
           ],
         ],
       ),
@@ -3298,157 +3570,164 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         title: 'Ayarlar',
         subtitle: 'Senin paran. Senin alanın.',
         children: [
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: s.followSystem
-                ? 'system'
-                : (s.dark ? 'dark' : 'light'),
-            decoration: InputDecoration(
-              labelText: 'Tema',
-              helperText:
-                  'Sistem seçiliyken telefonun teması otomatik takip edilir.',
-              helperMaxLines: 2,
-              prefixIcon: Icon(Icons.brightness_auto_rounded),
+          SectionCard(
+            title: 'Görünüm',
+            icon: Icons.palette_outlined,
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: s.followSystem
+                      ? 'system'
+                      : (s.dark ? 'dark' : 'light'),
+                  decoration: InputDecoration(
+                    labelText: 'Tema',
+                    helperText: 'Sistem seçeneği cihaz temasını izler.',
+                    prefixIcon: Icon(Icons.brightness_auto_rounded),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'system',
+                      child: Text('Sistem (otomatik)'),
+                    ),
+                    DropdownMenuItem(value: 'dark', child: Text('Koyu')),
+                    DropdownMenuItem(value: 'light', child: Text('Açık')),
+                  ],
+                  onChanged: (value) async {
+                    if (value == null) return;
+                    await mutate(() {
+                      s.followSystem = value == 'system';
+                      if (!s.followSystem) s.dark = value == 'dark';
+                    });
+                    if (context.mounted) update(() {});
+                  },
+                ),
+              ],
             ),
-            items: [
-              DropdownMenuItem(
-                value: 'system',
-                child: Text('Sistem (otomatik)'),
-              ),
-              DropdownMenuItem(value: 'dark', child: Text('Koyu')),
-              DropdownMenuItem(value: 'light', child: Text('Açık')),
-            ],
-            onChanged: (value) async {
-              if (value == null) return;
-              await mutate(() {
-                s.followSystem = value == 'system';
-                if (!s.followSystem) s.dark = value == 'dark';
-              });
-              if (context.mounted) update(() {});
-            },
           ),
-          SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Bütçe ve fatura bildirimleri'),
-            subtitle: const Text('Limit eşikleri ve yaklaşan manuel ödemeler'),
-            value: s.notificationsEnabled,
-            onChanged: (enabled) async {
-              if (enabled) {
-                try {
-                  final granted = await LocalNotifications.instance
-                      .requestPermission();
-                  if (!granted) {
-                    if (!context.mounted) return;
-                    final open = await showDialog<bool>(
-                      context: context,
-                      builder: (c) => AlertDialog(
-                        title: const Text('Bildirim izni gerekli'),
-                        content: const Text(
-                          'Android bildirimleri kapalı görünüyor. Uygulama bildirim ayarlarını açıp izni verebilirsin.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(c, false),
-                            child: const Text('Kapat'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(c, true),
-                            child: const Text('Ayarları aç'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (open == true) {
-                      await LocalNotifications.instance.openSettings();
+          const SizedBox(height: 16),
+          SectionCard(
+            title: 'Hatırlatmalar ve widget',
+            icon: Icons.notifications_none_rounded,
+            child: Column(
+              children: [
+                SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const IconBadge(
+                    Icons.notifications_active_outlined,
+                    size: 36,
+                  ),
+                  title: const Text('Bütçe ve fatura bildirimleri'),
+                  subtitle: const Text('Bütçe uyarıları ve ödeme vadeleri'),
+                  value: s.notificationsEnabled,
+                  onChanged: (enabled) async {
+                    if (enabled) {
+                      try {
+                        final granted = await LocalNotifications.instance
+                            .requestPermission();
+                        if (!granted) {
+                          if (!context.mounted) return;
+                          final open = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Bildirim izni gerekli'),
+                              content: const Text(
+                                'Android bildirimleri kapalı görünüyor. Uygulama bildirim ayarlarını açıp izni verebilirsin.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c, false),
+                                  child: const Text('Kapat'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text('Ayarları aç'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (open == true) {
+                            await LocalNotifications.instance.openSettings();
+                          }
+                          return;
+                        }
+                      } catch (error) {
+                        toast('Bildirim kurulamadı: $error');
+                        return;
+                      }
                     }
-                    return;
-                  }
-                } catch (error) {
-                  toast('Bildirim kurulamadı: $error');
-                  return;
-                }
-              }
-              if (await mutate(() => s.notificationsEnabled = enabled)) {
-                if (!enabled) await LocalNotifications.instance.cancelAll();
-                if (context.mounted) update(() {});
-              }
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: const Icon(Icons.widgets_outlined),
-            title: const Text('Widget’ta bakiyeyi göster'),
-            subtitle: const Text(
-              'Kapalıyken yalnızca hedef ilerlemesi görünür.',
+                    if (await mutate(() => s.notificationsEnabled = enabled)) {
+                      if (!enabled) {
+                        await LocalNotifications.instance.cancelAll();
+                      }
+                      if (context.mounted) update(() {});
+                    }
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const IconBadge(Icons.widgets_outlined, size: 36),
+                  title: const Text('Widget’ta bakiyeyi göster'),
+                  subtitle: const Text('Bakiye gizliliği'),
+                  value: s.showWidgetBalance,
+                  onChanged: (value) async {
+                    await mutate(() => s.showWidgetBalance = value);
+                    if (context.mounted) update(() {});
+                  },
+                ),
+                if (Platform.isAndroid)
+                  TextButton.icon(
+                    onPressed: chooseWidget,
+                    icon: const Icon(Icons.add_to_home_screen_rounded),
+                    label: const Text('Beş widget boyutundan birini seç'),
+                  ),
+              ],
             ),
-            value: s.showWidgetBalance,
-            onChanged: (value) async {
-              await mutate(() => s.showWidgetBalance = value);
-              if (context.mounted) update(() {});
-            },
           ),
-          if (Platform.isAndroid)
-            TextButton.icon(
-              onPressed: chooseWidget,
-              icon: const Icon(Icons.add_to_home_screen_rounded),
-              label: const Text('Beş widget boyutundan birini seç'),
-            ),
-          SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(Icons.auto_awesome_outlined),
-            title: Text('Görsel animasyonlar'),
-            subtitle: Text('Hareketli hedefler ve kayıt anı ışık efektleri'),
-            value: s.motion,
-            onChanged: (v) async {
-              await mutate(() => s.motion = v);
-              if (context.mounted) update(() {});
-            },
-          ),
-          SizedBox(height: 16),
-          Panel(
+          const SizedBox(height: 16),
+          SectionCard(
+            title: 'Hareket',
+            icon: Icons.auto_awesome_rounded,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Eyebrow('VERİLERİM'),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => exportData(csv: false),
-                  icon: const Icon(Icons.save_alt_rounded),
-                  label: const Text('JSON yedek oluştur'),
-                ),
-                TextButton.icon(
-                  onPressed: () => importData(context, closeSheet: true),
-                  icon: const Icon(Icons.restore_rounded),
-                  label: const Text('Yedekten geri yükle'),
-                ),
-                TextButton.icon(
-                  onPressed: () => exportData(csv: true),
-                  icon: const Icon(Icons.table_chart_outlined),
-                  label: const Text('İşlemleri CSV dışa aktar'),
+                SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const IconBadge(
+                    Icons.auto_awesome_outlined,
+                    size: 36,
+                  ),
+                  title: Text('Görsel animasyonlar'),
+                  subtitle: Text('Geçişler ve görsel efektler'),
+                  value: s.motion,
+                  onChanged: (v) async {
+                    await mutate(() => s.motion = v);
+                    if (context.mounted) update(() {});
+                  },
                 ),
               ],
             ),
           ),
           SizedBox(height: 16),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Eyebrow('YALNIZCA SENİN CİHAZINDA'),
-                SizedBox(height: 12),
-                Text(
-                  'Hesap açman veya internete bağlanman gerekmez. Veriler bu cihazda tutulur. Uygulamayı kaldırırsan yerel kayıtların silinebilir.',
-                  style: TextStyle(fontSize: 12, height: 1.6),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Otomatik kayıtlar açılışta, ön plana dönüşte ve uygulama açıkken tamamlanır. Birikim aktarımları gelir / gider analizine dahil edilmez.',
-                  style: TextStyle(fontSize: 12, height: 1.6),
-                ),
-              ],
+          SectionCard(
+            title: 'Veriler ve gizlilik',
+            icon: Icons.shield_outlined,
+            action: const InfoButton(
+              title: 'Veriler ve gizlilik',
+              message:
+                  'Veriler bu cihazda saklanır. Uygulamayı kaldırırsan yerel kayıtların silinebilir. Otomatik kayıtlar açılışta, ön plana dönüşte ve arka plan göreviyle tamamlanır. Birikim aktarımları gelir/gider sayılmaz.',
+            ),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const IconBadge(Icons.folder_outlined, size: 38),
+              title: const Text('Yedek ve dışa aktarma'),
+              subtitle: const Text('Profildeki veri yönetimini aç'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(context);
+                navigate(4);
+              },
             ),
           ),
           SizedBox(height: 24),

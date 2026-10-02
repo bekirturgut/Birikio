@@ -14,8 +14,8 @@ Future<T?> sheet<T>(BuildContext context, Widget child) =>
       sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
           ? AnimationStyle.noAnimation
           : const AnimationStyle(
-              duration: Duration(milliseconds: 560),
-              reverseDuration: Duration(milliseconds: 360),
+              duration: Duration(milliseconds: 320),
+              reverseDuration: Duration(milliseconds: 220),
             ),
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (_) => child,
@@ -58,48 +58,86 @@ class FormShell extends StatelessWidget {
     required this.children,
   });
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    padding: EdgeInsets.fromLTRB(
-      24,
-      8,
-      24,
-      MediaQuery.viewInsetsOf(context).bottom + 32,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.7,
+            Row(
+              children: [
+                IconBadge(
+                  title.contains('Gelir')
+                      ? Icons.south_west_rounded
+                      : title.contains('Gider')
+                      ? Icons.north_east_rounded
+                      : title.contains('Ayar')
+                      ? Icons.tune_rounded
+                      : title.contains('kategori') || title.contains('Kategori')
+                      ? Icons.category_outlined
+                      : Icons.edit_note_rounded,
+                  color: title.contains('Gelir')
+                      ? financeColors(context).positive
+                      : title.contains('Gider')
+                      ? financeColors(context).negative
+                      : null,
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.7,
+                    ),
+                  ),
+                ),
+                InfoButton(title: title, message: subtitle),
+                IconButton(
+                  tooltip: 'Pencereyi kapat',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            if (subtitle.length <= 60 && !subtitle.contains('Senin paran')) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: financeColors(context).accent.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(subtitle, style: const TextStyle(fontSize: 12)),
               ),
-            ),
-            IconButton(
-              tooltip: 'Pencereyi kapat',
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            ],
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 1.5,
+      ),
+      Flexible(
+        fit: FlexFit.loose,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            8,
+            24,
+            MediaQuery.viewInsetsOf(context).bottom + 32,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
           ),
         ),
-        const SizedBox(height: 18),
-        ...children,
-      ],
-    ),
+      ),
+    ],
   );
 }
 
@@ -267,7 +305,7 @@ class _EntryFormState extends State<EntryForm> {
             '${widget.income ? 'Gelir' : 'Gider'} ${widget.entry == null && widget.scheduled == null ? 'ekle' : 'düzenle'}',
         subtitle: widget.entry?.rule != null
             ? 'Kaydederken değişikliğin hangi dönemleri etkileyeceğini seçebilirsin. Tekrarın tarih ve sıklığı değişmez.'
-            : 'Küçük kayıtlar, büyük bir farkındalık.',
+            : 'Tutarı, kategoriyi ve kayıt tarihini seç. İleri tarihli kayıtlar vadelerine kadar bekler. Düzenli kayıt için tekrar sıklığı belirle.',
         children: [
           TextFormField(
             controller: amount,
@@ -296,6 +334,7 @@ class _EntryFormState extends State<EntryForm> {
                   : 'Örn. Market alışverişi',
             ),
           ),
+          const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             isExpanded: true,
             key: ValueKey(category),
@@ -669,9 +708,11 @@ class _GoalFormState extends State<GoalForm> {
           decoration: const InputDecoration(
             labelText: 'Hedef adı',
             helperText: 'İsteğe bağlı · boş bırakırsan kategori adı kullanılır',
+            helperMaxLines: 2,
             hintText: 'Örn. İlk motorum',
           ),
         ),
+        const SizedBox(height: 16),
         TextFormField(
           controller: amount,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -719,6 +760,7 @@ class _GoalFormState extends State<GoalForm> {
           decoration: const InputDecoration(
             labelText: 'Planlanan aylık birikim',
             helperText: 'Tahmini bitiş ve aylık takip için kullanılır',
+            helperMaxLines: 2,
             suffixText: '₺',
           ),
           validator: (value) =>
@@ -796,11 +838,13 @@ class _GoalFormState extends State<GoalForm> {
                             color: colors.accent,
                           ),
                           const SizedBox(width: 9),
-                          Text(
-                            'Gün sınırı yok',
-                            style: TextStyle(
-                              color: colors.goalText,
-                              fontWeight: FontWeight.w700,
+                          Expanded(
+                            child: Text(
+                              'Gün sınırı yok',
+                              style: TextStyle(
+                                color: colors.goalText,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
