@@ -2105,6 +2105,25 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _ => Icons.grid_view_rounded,
   };
 
+  void openRecords<T>(
+    String title,
+    String scope,
+    List<T> Function() items,
+    Widget Function(T) builder,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RecordListPage<T>(
+          store: s,
+          title: title,
+          scope: scope,
+          items: items,
+          itemBuilder: builder,
+        ),
+      ),
+    );
+  }
+
   List<Widget> entryPage() {
     final colors = financeColors(context);
     final start = DateTime(entryMonth.year, entryMonth.month);
@@ -2139,34 +2158,43 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         (entryMaxAmount == null || amount <= entryMaxAmount!) &&
         (recurringFilter == null || recurring == recurringFilter) &&
         '$title $category $note'.toLowerCase().contains(query.toLowerCase());
-    final data = monthEntries
-        .where(
-          (e) =>
-              typeMatches(e.income) &&
-              matches(
-                e.title,
-                e.category,
-                e.note,
-                e.amount,
-                e.date,
-                e.rule != null,
-              ),
-        )
-        .toList();
-    if (entrySort == 1) data.sort((a, b) => a.date.compareTo(b.date));
-    if (entrySort == 2) data.sort((a, b) => b.amount.compareTo(a.amount));
-    if (entrySort == 3) data.sort((a, b) => a.amount.compareTo(b.amount));
-    final pending =
-        s.scheduledExpenses
-            .where(
-              (p) =>
-                  p.paidAt == null &&
-                  dateMatches(p.due) &&
-                  typeMatches(p.income) &&
-                  matches(p.title, p.category, p.note, p.amount, p.due, false),
-            )
-            .toList()
-          ..sort((a, b) => a.due.compareTo(b.due));
+    List<Entry> records() {
+      final data = s.sorted
+          .where((e) => dateMatches(e.date))
+          .where(
+            (e) =>
+                typeMatches(e.income) &&
+                matches(
+                  e.title,
+                  e.category,
+                  e.note,
+                  e.amount,
+                  e.date,
+                  e.rule != null,
+                ),
+          )
+          .toList();
+      if (entrySort == 1) data.sort((a, b) => a.date.compareTo(b.date));
+      if (entrySort == 2) data.sort((a, b) => b.amount.compareTo(a.amount));
+      if (entrySort == 3) data.sort((a, b) => a.amount.compareTo(b.amount));
+      return data;
+    }
+
+    final data = records();
+    List<ScheduledExpense> plans() {
+      return s.scheduledExpenses
+          .where(
+            (p) =>
+                p.paidAt == null &&
+                dateMatches(p.due) &&
+                typeMatches(p.income) &&
+                matches(p.title, p.category, p.note, p.amount, p.due, false),
+          )
+          .toList()
+        ..sort((a, b) => a.due.compareTo(b.due));
+    }
+
+    final pending = plans();
     final filtered =
         query.isNotEmpty ||
         categoryFilter != null ||
@@ -2174,6 +2202,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         entryMinAmount != null ||
         entryMaxAmount != null ||
         recurringFilter != null;
+    final scope = entryAllMonths
+        ? 'Tüm aylar'
+        : '${dateLabel(start)} · seçili ay';
     final prefix = <Widget>[
       sectionTabs(
         ['Kayıtlar', 'Yıllık radar', 'Düzenli'],
@@ -2246,7 +2277,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             subtitle: '+ menüsünden gelir veya gider ekleyip tekrarlama seç.',
             icon: Icons.autorenew_rounded,
           ),
-        ...s.rules.map((r) => r.isBill ? billCard(r) : regularRecordCard(r)),
+        ...s.rules
+            .take(5)
+            .map((r) => r.isBill ? billCard(r) : regularRecordCard(r)),
+        if (s.rules.length > 5)
+          OutlinedButton.icon(
+            onPressed: () => openRecords<RepeatRule>(
+              'Düzenli kayıtlar',
+              'Tüm seriler',
+              () => s.rules.toList(),
+              (r) => r.isBill ? billCard(r) : regularRecordCard(r),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: Text('Tümünü gör (${s.rules.length})'),
+          ),
       ];
     }
     final income = monthEntries
@@ -2421,14 +2465,38 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         SectionCard(
           title: 'Gerçekleşen kayıtlar',
           icon: Icons.receipt_long_rounded,
-          child: Column(children: data.map(entryTile).toList()),
+          action: data.length > 5
+              ? TextButton(
+                  onPressed: () => openRecords<Entry>(
+                    'Gerçekleşen kayıtlar',
+                    scope,
+                    records,
+                    entryTile,
+                  ),
+                  child: Text('Tümünü gör (${data.length})'),
+                )
+              : null,
+          child: Column(children: data.take(5).map(entryTile).toList()),
         ),
       if (pending.isNotEmpty) ...[
         const SizedBox(height: 14),
         SectionCard(
           title: 'Bekleyen kayıtlar',
           icon: Icons.schedule_rounded,
-          child: Column(children: pending.map(pendingRecordCard).toList()),
+          action: pending.length > 5
+              ? TextButton(
+                  onPressed: () => openRecords<ScheduledExpense>(
+                    'Bekleyen kayıtlar',
+                    scope,
+                    plans,
+                    pendingRecordCard,
+                  ),
+                  child: Text('Tümünü gör (${pending.length})'),
+                )
+              : null,
+          child: Column(
+            children: pending.take(5).map(pendingRecordCard).toList(),
+          ),
         ),
       ],
       if (data.isEmpty && pending.isEmpty)
@@ -3071,26 +3139,35 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (s.goals.isEmpty)
       emptyGoal()
     else
-      ...s.goals.map(
-        (g) =>
-            Padding(padding: EdgeInsets.only(bottom: 16), child: goalCard(g)),
+      ...s.goals
+          .take(5)
+          .map(
+            (g) => Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: goalCard(g),
+            ),
+          ),
+    if (s.goals.length > 5)
+      OutlinedButton.icon(
+        onPressed: () => openRecords<Goal>(
+          'Birikim hedefleri',
+          'Tüm hedefler',
+          () => s.goals.toList(),
+          (g) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: goalCard(g),
+          ),
+        ),
+        icon: const Icon(Icons.arrow_forward_rounded),
+        label: Text('Tümünü gör (${s.goals.length})'),
       ),
   ];
-  void allEntries() {
-    navigate(1);
-    setState(() {
-      entryView = 0;
-      entryAllMonths = true;
-      entryFilter = 0;
-      query = '';
-      entrySearch.clear();
-      categoryFilter = null;
-      entryDateRange = null;
-      entryMinAmount = null;
-      entryMaxAmount = null;
-      recurringFilter = null;
-    });
-  }
+  void allEntries() => openRecords<Entry>(
+    'Tüm kayıtlar',
+    'Tüm aylar',
+    () => s.sorted,
+    entryTile,
+  );
 
   void goalHistory(Goal goal) {
     final list = s.transfers.where((t) => t.goal == goal.id).toList()

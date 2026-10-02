@@ -99,6 +99,10 @@ Cüzdan birikim hedeflerini ve bütçeleri; Analiz dönemlik gelir gider dengesi
 
 ### Birlikte duran bilgiler, görsel bir arayüz
 
+Ana görünümlerde gerçekleşmiş kayıtlar, bekleyen kayıtlar, düzenli seriler, birikim hedefleri ve takvim ayrıntıları en fazla **5 kayıt** gösterir. Daha fazlası varsa **Tümünü gör (adet)** ayrı bir sayfa açar. Seçili ay, gelir/gider türü, arama, filtreler ve sıralama korunur; geri dönünce önceki görünüm devam eder. Anasayfadaki Son hareketler bağlantısı bütün gerçekleşmiş işlemleri açar. Tam listeler kayıtları kaydırdıkça oluşturur ve düzenleme/silme sonrasında yenilenir.
+
+<p align="center"><img src="docs/images/full-records.png" alt="Ana ekranı uzatmadan ayrı sayfada açılan tam kayıt listesi" width="310" /></p>
+
 Anasayfa, Gelir & Gider, Cüzdan, Analiz ve Profil aynı görsel dili kullanır: renkli simge yüzeyleri, mint ve mor geçişli özet kartları, yuvarlatılmış alt gezinme ve içerikle birlikte duran bölüm başlıkları. Gelir/gider ekranında ay seçimi ile o ayın toplamları aynı karttadır; gerçekleşmiş ve bekleyen işlemler kendi grupları içinde gösterilir. Profil özeti ve güncel uyarısı birlikte durur. Bütçenin harcanan, limit ve kalan değerleri aynı görsel özettedir.
 
 Anasayfadan kayıtlar ve takvim doğrudan açılır. Cüzdanda birikim ve bütçe simgeli sekmeyle seçilir. Profilde ayarlar, kategoriler ve veri yönetimi ayrı gruplardadır. Ayarlardaki yedek bağlantısı Profildeki veri yönetimini açar; aynı işlemler iki yerde tekrarlanmaz. Uzun hesaplama ve kullanım açıklamaları ilgili **ⓘ** düğmesinden açılır. Formlarda başlık, yardım ve kapatma düğmeleri içerik kaydırılırken yerinde kalır. Boş listeler yalnız metin yerine simgeli durum kartlarıyla anlatılır. Açık tema aynı gruplamayı ve renk ayrımını korur.
@@ -188,7 +192,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.0+5` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.1+6` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 
@@ -272,7 +276,7 @@ Testler; para ayrıştırma, ay sonu ve artık yıl davranışları, tekrarları
 
 ### Görselleri yeniden üretme
 
-README'deki 21 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
+README'deki 22 ekran görüntüsü uygulamanın gerçek bileşenlerinden, bellekte tutulan kurgu örnek verilerle üretilir. Kendi Flutter SDK yolunu ver:
 
 ```sh
 flutter test tools/capture_readme.dart --dart-define=FLUTTER_SDK=C:/flutter

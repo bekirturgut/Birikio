@@ -251,6 +251,18 @@ void main() {
     await tester.tap(find.text('Tümü').first);
     await tester.pumpAndSettle();
     await capture('records-all');
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Tümünü gör (6)')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tümünü gör (6)'));
+    await tester.pumpAndSettle();
+    await capture('full-records');
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Düzenli'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Düzenli'));
     await tester.pumpAndSettle();
     await capture('recurring');

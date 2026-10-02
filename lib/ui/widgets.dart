@@ -33,6 +33,64 @@ const goalIcons = <String, IconData>{
   'Diğer': Icons.auto_awesome_rounded,
 };
 
+class RecordListPage<T> extends StatelessWidget {
+  final FinanceStore store;
+  final String title, scope;
+  final List<T> Function() items;
+  final Widget Function(T) itemBuilder;
+  const RecordListPage({
+    super.key,
+    required this.store,
+    required this.title,
+    required this.scope,
+    required this.items,
+    required this.itemBuilder,
+  });
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: store,
+    builder: (context, _) {
+      final records = items();
+      return Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+              child: SectionCard(
+                title: scope,
+                icon: Icons.receipt_long_rounded,
+                child: Text(
+                  '${records.length} kayıt',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: records.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(18),
+                      child: EmptyState(
+                        title: 'Kayıt yok',
+                        subtitle: 'Bu görünümdeki kayıtlar burada listelenir.',
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                      itemCount: records.length,
+                      itemBuilder: (_, index) => itemBuilder(records[index]),
+                    ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class Panel extends StatelessWidget {
   final Widget child;
   final Color? color;

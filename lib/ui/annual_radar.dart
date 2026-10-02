@@ -411,134 +411,157 @@ class _AnnualRadarState extends State<AnnualRadar> {
             subtitle: 'Gelir ve giderlerin burada bir araya gelecek.',
             icon: Icons.event_available_outlined,
           ),
-        ...monthItems.map((item) {
-          final rule = item.fromRule
-              ? widget.store.rules.where((r) => r.id == item.id).firstOrNull
-              : null;
-          final canPay =
-              !item.income &&
-              !item.paid &&
-              (item.scheduled ||
-                  (!item.fromRule) ||
-                  (rule?.isBill == true && rule?.automaticPayment == false));
-          final late = !item.paid && item.due.isBefore(day(DateTime.now()));
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Panel(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ...monthItems.take(5).map(radarRecordCard),
+        if (monthItems.length > 5)
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => RecordListPage<RadarExpense>(
+                  store: widget.store,
+                  title: 'Takvim kayıtları',
+                  scope: '${months[selectedMonth - 1]} $year',
+                  items: () => annualRadarItems(
+                    widget.store,
+                    year,
+                  ).where((e) => e.due.month == selectedMonth).toList(),
+                  itemBuilder: radarRecordCard,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: Text('Tümünü gör (${monthItems.length})'),
+          ),
+      ],
+    );
+  }
+
+  Widget radarRecordCard(RadarExpense item) {
+    final colors = financeColors(context);
+
+    final rule = item.fromRule
+        ? widget.store.rules.where((r) => r.id == item.id).firstOrNull
+        : null;
+    final canPay =
+        !item.income &&
+        !item.paid &&
+        (item.scheduled ||
+            (!item.fromRule) ||
+            (rule?.isBill == true && rule?.automaticPayment == false));
+    final late = !item.paid && item.due.isBefore(day(DateTime.now()));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Panel(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconBadge(
+                  item.income
+                      ? Icons.south_west_rounded
+                      : Icons.north_east_rounded,
+                  color: item.income ? colors.positive : colors.negative,
+                  size: 34,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  '${item.income ? '+' : '−'}${money(item.paidAmount ?? item.amount)}',
+                  style: TextStyle(
+                    color: item.income ? colors.positive : colors.negative,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${dateLabel(item.due)} · ${item.category}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              item.paid
+                  ? (item.income ? 'Alındı' : 'Ödendi')
+                  : item.income
+                  ? 'Beklenen gelir'
+                  : late
+                  ? 'Gecikti'
+                  : 'Bekliyor',
+              style: TextStyle(
+                fontSize: 12,
+                color: item.paid
+                    ? colors.positive
+                    : late
+                    ? colors.negative
+                    : colors.accent,
+              ),
+            ),
+            if (canPay || (!item.recorded && !item.fromRule))
+              Wrap(
+                alignment: WrapAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      IconBadge(
-                        item.income
-                            ? Icons.south_west_rounded
-                            : Icons.north_east_rounded,
-                        color: item.income ? colors.positive : colors.negative,
-                        size: 34,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      Text(
-                        '${item.income ? '+' : '−'}${money(item.paidAmount ?? item.amount)}',
-                        style: TextStyle(
-                          color: item.income
-                              ? colors.positive
-                              : colors.negative,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${dateLabel(item.due)} · ${item.category}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.paid
-                        ? (item.income ? 'Alındı' : 'Ödendi')
-                        : item.income
-                        ? 'Beklenen gelir'
-                        : late
-                        ? 'Gecikti'
-                        : 'Bekliyor',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: item.paid
-                          ? colors.positive
-                          : late
-                          ? colors.negative
-                          : colors.accent,
+                  if (canPay)
+                    TextButton(
+                      onPressed: () => recordPayment(item),
+                      child: const Text('Ödendi olarak kaydet'),
                     ),
-                  ),
-                  if (canPay || (!item.recorded && !item.fromRule))
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      children: [
-                        if (canPay)
-                          TextButton(
-                            onPressed: () => recordPayment(item),
-                            child: const Text('Ödendi olarak kaydet'),
-                          ),
-                        if (!item.recorded && !item.fromRule)
-                          PopupMenuButton<String>(
-                            tooltip: 'Plan seçenekleri',
-                            onSelected: (action) async {
-                              if (item.scheduled) {
-                                final p = widget.store.scheduledExpenses
-                                    .firstWhere((p) => p.id == item.id);
-                                if (action == 'edit') {
-                                  await editScheduled(p);
-                                } else if (await confirm(
-                                  context,
-                                  'Plan silinsin mi?',
-                                  'Geçmiş kayıtlar korunur.',
-                                )) {
-                                  await widget.store.change(
-                                    () => widget.store.scheduledExpenses
-                                        .removeWhere((e) => e.id == p.id),
-                                  );
-                                }
-                              } else {
-                                final p = widget.store.annualPlans.firstWhere(
-                                  (p) => p.id == item.id,
-                                );
-                                if (action == 'edit') {
-                                  await edit(p);
-                                } else {
-                                  await delete(p);
-                                }
-                              }
-                              if (mounted) setState(() {});
-                            },
-                            itemBuilder: (_) => [
-                              if (!item.paid)
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Text('Düzenle'),
-                                ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Planı sil'),
+                  if (!item.recorded && !item.fromRule)
+                    PopupMenuButton<String>(
+                      tooltip: 'Plan seçenekleri',
+                      onSelected: (action) async {
+                        if (item.scheduled) {
+                          final p = widget.store.scheduledExpenses.firstWhere(
+                            (p) => p.id == item.id,
+                          );
+                          if (action == 'edit') {
+                            await editScheduled(p);
+                          } else if (await confirm(
+                            context,
+                            'Plan silinsin mi?',
+                            'Geçmiş kayıtlar korunur.',
+                          )) {
+                            await widget.store.change(
+                              () => widget.store.scheduledExpenses.removeWhere(
+                                (e) => e.id == p.id,
                               ),
-                            ],
+                            );
+                          }
+                        } else {
+                          final p = widget.store.annualPlans.firstWhere(
+                            (p) => p.id == item.id,
+                          );
+                          if (action == 'edit') {
+                            await edit(p);
+                          } else {
+                            await delete(p);
+                          }
+                        }
+                        if (mounted) setState(() {});
+                      },
+                      itemBuilder: (_) => [
+                        if (!item.paid)
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Düzenle'),
                           ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Planı sil'),
+                        ),
                       ],
                     ),
                 ],
               ),
-            ),
-          );
-        }),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
