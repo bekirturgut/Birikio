@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import '../data/store.dart';
+import '../data/annual_radar.dart';
 import '../data/backup.dart';
 import '../data/financial_health.dart';
 import '../data/goal_plan.dart';
@@ -2137,7 +2138,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ...monthEntries
           .where((e) => typeMatches(e.income))
           .map((e) => e.category),
-      ...s.scheduledExpenses
+      ...annualRadarItems(s, entryMonth.year)
           .where((p) => dateMatches(p.due) && typeMatches(p.income))
           .map((p) => p.category),
     }.toList()..sort();
@@ -2181,14 +2182,28 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
 
     final data = records();
-    List<ScheduledExpense> plans() {
-      return s.scheduledExpenses
+    List<RadarExpense> plans() {
+      final years = entryAllMonths
+          ? <int>{
+              entryMonth.year,
+              ...s.scheduledExpenses.map((p) => p.due.year),
+            }
+          : <int>{entryMonth.year};
+      return years
+          .expand((year) => annualRadarItems(s, year))
           .where(
             (p) =>
-                p.paidAt == null &&
+                !p.paid &&
                 dateMatches(p.due) &&
                 typeMatches(p.income) &&
-                matches(p.title, p.category, p.note, p.amount, p.due, false),
+                matches(
+                  p.title,
+                  p.category,
+                  pendingNote(p),
+                  p.amount,
+                  p.due,
+                  p.fromRule,
+                ),
           )
           .toList()
         ..sort((a, b) => a.due.compareTo(b.due));
@@ -2384,6 +2399,24 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ],
         ),
       ),
+      if (pending.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          children: [
+            Chip(
+              label: Text(
+                'Beklenen gelir: +${money(pending.where((p) => p.income).fold<int>(0, (v, p) => v + p.amount))}',
+              ),
+            ),
+            Chip(
+              label: Text(
+                'Beklenen gider: −${money(pending.where((p) => !p.income).fold<int>(0, (v, p) => v + p.amount))}',
+              ),
+            ),
+          ],
+        ),
+      ],
       const SizedBox(height: 16),
       sectionTabs(
         ['Tümü', 'Gelirler', 'Giderler'],
@@ -2485,17 +2518,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           icon: Icons.schedule_rounded,
           action: pending.length > 5
               ? TextButton(
-                  onPressed: () => openRecords<ScheduledExpense>(
+                  onPressed: () => openRecords<RadarExpense>(
                     'Bekleyen kayıtlar',
                     scope,
                     plans,
-                    pendingRecordCard,
+                    projectedRecordCard,
                   ),
                   child: Text('Tümünü gör (${pending.length})'),
                 )
               : null,
           child: Column(
-            children: pending.take(5).map(pendingRecordCard).toList(),
+            children: pending.take(5).map(projectedRecordCard).toList(),
           ),
         ),
       ],
@@ -2508,7 +2541,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               : 'Bu ay kayıt yok',
           subtitle: filtered
               ? 'Aramayı veya filtreleri temizleyerek diğer kayıtlarını görebilirsin.'
-              : s.entries.isNotEmpty || s.scheduledExpenses.isNotEmpty
+              : s.entries.isNotEmpty ||
+                    s.scheduledExpenses.isNotEmpty ||
+                    s.rules.isNotEmpty
               ? 'Diğer aylardaki kayıtların saklanıyor. Tüm kayıtları açabilir veya üstteki oklarla ay değiştirebilirsin.'
               : 'Gelir, gider veya birikim için sağ alttaki + düğmesini kullan.',
           action: filtered ? 'Filtreleri temizle' : null,
@@ -2525,6 +2560,58 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           icon: Icons.event_note_outlined,
         ),
     ];
+  }
+
+  String pendingNote(RadarExpense p) => p.fromRule
+      ? s.rules.where((r) => r.id == p.id).firstOrNull?.note ?? ''
+      : s.scheduledExpenses.where((r) => r.id == p.id).firstOrNull?.note ?? '';
+
+  String pendingStatus(DateTime due) {
+    final today = day(DateTime.now());
+    return day(due).isBefore(today)
+        ? 'Gecikti'
+        : day(due) == today
+        ? 'Bugün'
+        : 'Yaklaşan';
+  }
+
+  Widget projectedRecordCard(RadarExpense p) {
+    if (p.scheduled) {
+      return pendingRecordCard(
+        s.scheduledExpenses.firstWhere((r) => r.id == p.id),
+      );
+    }
+    final rule = s.rules.where((r) => r.id == p.id).firstOrNull;
+    final colors = financeColors(context);
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      leading: IconBadge(
+        Icons.autorenew_rounded,
+        color: p.income ? colors.positive : colors.negative,
+        size: 36,
+      ),
+      title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(
+        '${dateLabel(p.due)} · ${pendingStatus(p.due)}\n${p.fromRule ? 'Düzenli' : 'Yıllık ödeme'} · ${p.category}',
+      ),
+      isThreeLine: true,
+      trailing: Text(
+        '${p.income ? '+' : '−'}${money(p.amount)}',
+        style: TextStyle(
+          color: p.income ? colors.positive : colors.negative,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      onTap: rule == null
+          ? () => setState(() => entryView = 1)
+          : () => sheet<void>(
+              context,
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: rule.isBill ? billCard(rule) : regularRecordCard(rule),
+              ),
+            ),
+    );
   }
 
   Widget pendingRecordCard(ScheduledExpense p) => Padding(
@@ -2563,7 +2650,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 8),
           Text(
-            '${dateLabel(p.due)} · ${p.income ? 'Beklenen gelir' : 'Ödeme bekliyor'}',
+            '${dateLabel(p.due)} · ${pendingStatus(p.due)} · ${p.income ? 'Beklenen gelir' : 'Ödeme bekliyor'}',
             style: const TextStyle(fontSize: 12),
           ),
           Row(

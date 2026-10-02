@@ -81,7 +81,9 @@ List<RadarExpense> annualRadarItems(FinanceStore store, int year) {
         period++
       )
         if (rule.occurrence(period).year == year &&
-            (rule.active ||
+            ((rule.active &&
+                    ((rule.isBill && !rule.automaticPayment) ||
+                        period >= rule.cursor)) ||
                 store.entries.any((e) => e.id == '${rule.id}:$period')) &&
             (rule.endDate == null ||
                 !rule.occurrence(period).isAfter(day(rule.endDate!))))

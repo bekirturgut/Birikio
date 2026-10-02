@@ -168,6 +168,17 @@ void main() {
     ]);
     store.rules.add(
       RepeatRule(
+        id: 'future-salary',
+        title: 'Düzenli maaş',
+        amount: 4500000,
+        income: true,
+        start: DateTime(now.year, now.month, 28),
+        category: 'Maaş',
+        frequency: 3,
+      ),
+    );
+    store.rules.add(
+      RepeatRule(
         id: 'internet',
         title: 'Ev interneti',
         amount: 65000,
@@ -243,9 +254,18 @@ void main() {
     await tester.tap(find.text('Gelir & Gider').last);
     await tester.pumpAndSettle();
     await capture('transactions');
+    await tester.tap(find.text('Gelirler'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Düzenli maaş'));
+    await tester.pumpAndSettle();
+    await capture('monthly-pending');
+    await tester.ensureVisible(find.text('Giderler'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Giderler'));
     await tester.pumpAndSettle();
     await capture('expenses');
+    await tester.ensureVisible(find.text('Tüm kayıtları göster').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tüm kayıtları göster').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tümü').first);
