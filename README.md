@@ -36,6 +36,8 @@ Anasayfada kullanılabilir bakiyeyi, bu ayın gelir ve giderini ve birikim hedef
 
 ### 2. Gelir ve giderlerini kaydet
 
+Aylık özet tek kartta iki sütundur: gelir ve giderin gerçekleşen tutarı, hemen altında aynı dönemin bekleyen tutarı yer alır. Liste filtreleri bu dönem özetini değiştirmez. Kartların iç boşlukları ve boş durum görselleri küçültüldü; daha fazla içerik aynı ekrana sığar.
+
 Alttaki **+** düğmesi gelir, gider ve birikim hedefi ekleme akışlarını açar. Gelir & Gider ekranında **Kayıtlar / Yıllık radar / Düzenli** görünümlerine doğrudan geçersin. Kayıtlarda oklarla ay değiştirir veya **Tüm kayıtları göster** ile bütün geçmişi açarsın. Düzenli görünümü bütün serileri listeler. Yeni kayıt eklenince kaydın ayı açılır ve önceki arama/filtreler temizlenir. Kategori, tarih, tutar ve tekrar durumuyla ayrıca filtreleyebilirsin. Tutar yazarken binlik gruplar otomatik noktayla ayrılır.
 
 <table>
@@ -196,7 +198,7 @@ pwsh -File tools/build_update_apk.ps1
 
 Betik analiz ve testlerden sonra release APK'sini derler; aynı özel anahtarla imzalar ve paket kimliği, sürüm kodu ile sertifika parmak izini doğrulamadan masaüstüne kopyalamaz. Son teslim kodunu `tools/update_identity.json` içinde günceller; bu dosyayı da değişikliklerle birlikte commit et. Eski anahtar `~/.android/debug.keystore` konumunda bulunmalıdır. Anahtarın güvenli bir çevrimdışı kopyasını sakla; **yeni debug anahtarı üretmek aynı imzayı sağlamaz**. Bu anahtarı repoya ekleme.
 
-Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.2+7` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
+Telefonunda önceki Birikio APK'si yüklüyse güncelleme için `com.bekirturgut.birikio` paket kimliği, **aynı imza sertifikası** ve daha yüksek `versionCode` gerekir. Son teslim `1.2.3+8` değerini kullanır. Kurmadan önce **Profil → Yedek oluştur**; APK'yi mevcut uygulamanın üzerine **Güncelle** ile kur. Kaldırma veya uygulama verilerini temizleme yerel kayıtları silebilir. İmza uyuşmazlığı yüzünden Android kaldırma isterse işlemi durdur ve yedeği al.
 
 > README görselleri Flutter widget testinde gerçek arayüz bileşenlerinden üretilir. iOS cihaz derlemesi henüz doğrulanmamıştır.
 

@@ -2210,6 +2210,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
 
     final pending = plans();
+    final summaryYears = entryAllMonths
+        ? <int>{entryMonth.year, ...s.scheduledExpenses.map((p) => p.due.year)}
+        : <int>{entryMonth.year};
+    final expected = summaryYears
+        .expand((year) => annualRadarItems(s, year))
+        .where((p) => !p.paid && dateMatches(p.due));
+    final expectedIncome = expected
+        .where((p) => p.income)
+        .fold<int>(0, (v, p) => v + p.amount);
+    final expectedExpense = expected
+        .where((p) => !p.income)
+        .fold<int>(0, (v, p) => v + p.amount);
+
     final filtered =
         query.isNotEmpty ||
         categoryFilter != null ||
@@ -2238,7 +2251,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             children: [
               Row(
                 children: [
-                  const IconBadge(Icons.autorenew_rounded, size: 48),
+                  const IconBadge(Icons.autorenew_rounded, size: 40),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
@@ -2317,6 +2330,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     return [
       ...prefix,
       FeatureCard(
+        key: const ValueKey('monthly-summary'),
         color: colors.positive,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2335,15 +2349,43 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
                 Expanded(
-                  child: Text(
-                    entryAllMonths
-                        ? 'Tüm kayıtlar'
-                        : '${const ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][entryMonth.month - 1]} ${entryMonth.year}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Column(
+                    children: [
+                      Text(
+                        entryAllMonths
+                            ? 'Tüm kayıtlar'
+                            : '${const ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][entryMonth.month - 1]} ${entryMonth.year}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.center,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          onPressed: () =>
+                              setState(() => entryAllMonths = !entryAllMonths),
+                          icon: Icon(
+                            entryAllMonths
+                                ? Icons.calendar_month_outlined
+                                : Icons.history_rounded,
+                            size: 14,
+                          ),
+                          label: Text(
+                            entryAllMonths
+                                ? 'Ay ay göster'
+                                : 'Tüm kayıtları göster',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -2359,22 +2401,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
               ],
             ),
-            Center(
-              child: TextButton.icon(
-                onPressed: () =>
-                    setState(() => entryAllMonths = !entryAllMonths),
-                icon: Icon(
-                  entryAllMonths
-                      ? Icons.calendar_month_outlined
-                      : Icons.history_rounded,
-                  size: 17,
-                ),
-                label: Text(
-                  entryAllMonths ? 'Ay ay göster' : 'Tüm kayıtları göster',
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -2383,6 +2409,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     income,
                     colors.positive,
                     Icons.south_west_rounded,
+                    expected: expectedIncome,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2392,6 +2419,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     expense,
                     colors.negative,
                     Icons.north_east_rounded,
+                    expected: expectedExpense,
                   ),
                 ),
               ],
@@ -2399,24 +2427,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ],
         ),
       ),
-      if (pending.isNotEmpty) ...[
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          children: [
-            Chip(
-              label: Text(
-                'Beklenen gelir: +${money(pending.where((p) => p.income).fold<int>(0, (v, p) => v + p.amount))}',
-              ),
-            ),
-            Chip(
-              label: Text(
-                'Beklenen gider: −${money(pending.where((p) => !p.income).fold<int>(0, (v, p) => v + p.amount))}',
-              ),
-            ),
-          ],
-        ),
-      ],
       const SizedBox(height: 16),
       sectionTabs(
         ['Tümü', 'Gelirler', 'Giderler'],
@@ -3091,6 +3101,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     Color color,
     IconData icon, {
     bool large = false,
+    int? expected,
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -3109,7 +3120,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         ],
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 4),
+      if (expected != null)
+        Text(
+          'Gerçekleşen',
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       SizedBox(
         width: double.infinity,
         child: FittedBox(
@@ -3126,6 +3145,42 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         ),
       ),
+      if (expected != null) ...[
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bekleyen',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  money(expected),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ],
   );
 
@@ -3306,7 +3361,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           children: [
             Row(
               children: [
-                const IconBadge(Icons.person_rounded, size: 56),
+                const IconBadge(Icons.person_rounded, size: 40),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -3485,15 +3540,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   Widget _profileMetric(String value, String label, IconData icon) => Column(
     children: [
-      Icon(
-        icon,
-        size: 17,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-      const SizedBox(height: 6),
-      Text(
-        value,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 3),
       Text(

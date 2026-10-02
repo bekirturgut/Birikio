@@ -4,5 +4,5 @@
     "backupFormat":  "birikio-backup",
     "signingAlias":  "androiddebugkey",
     "signingCertificateSha256":  "6f90672e47a83cd44ee10e3c85d4e94db046260e050d87070ed23aabae6b86b4",
-    "lastDeliveredVersionCode":  7
+    "lastDeliveredVersionCode":  8
 }

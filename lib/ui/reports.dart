@@ -97,12 +97,12 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   SizedBox(
-                    width: 84,
-                    height: 84,
+                    width: 72,
+                    height: 72,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -150,7 +150,7 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(child: _budgetMetric('Limit', limit)),

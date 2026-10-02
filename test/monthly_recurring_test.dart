@@ -32,6 +32,12 @@ void main() {
     await tester.tap(find.text('Gelir & Gider').last);
     await tester.pumpAndSettle();
     expect(find.text('0 gerçekleşmiş · 2 bekleyen kayıt'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('monthly-summary'))).height,
+      lessThan(220),
+    );
+    expect(find.byType(Chip), findsNothing);
+    expect(find.text('Bekleyen'), findsNWidgets(2));
     await tester.ensureVisible(find.text('Düzenli maaş'));
     expect(find.text('Düzenli maaş'), findsOneWidget);
     expect(find.text('Düzenli kira'), findsOneWidget);
@@ -42,6 +48,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('0 gerçekleşmiş · 1 bekleyen kayıt'), findsOneWidget);
     expect(find.text('Düzenli kira'), findsNothing);
+    // The period summary remains independent of the income-only list filter.
+    expect(find.text('100,00 ₺'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 

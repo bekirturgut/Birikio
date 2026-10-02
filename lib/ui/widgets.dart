@@ -99,7 +99,7 @@ class Panel extends StatelessWidget {
     super.key,
     required this.child,
     this.color,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(14),
   });
   @override
   Widget build(BuildContext context) => Material(
@@ -199,7 +199,7 @@ class SectionCard extends StatelessWidget {
             ?action,
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         child,
       ],
     ),
@@ -265,7 +265,7 @@ class FeatureCard extends StatelessWidget {
           ),
           Material(
             color: Colors.transparent,
-            child: Padding(padding: const EdgeInsets.all(20), child: child),
+            child: Padding(padding: const EdgeInsets.all(14), child: child),
           ),
         ],
       ),
@@ -337,14 +337,14 @@ class EmptyState extends StatelessWidget {
       children: [
         Center(
           child: SizedBox(
-            width: 100,
-            height: 88,
+            width: 68,
+            height: 56,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 84,
-                  height: 84,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -354,7 +354,7 @@ class EmptyState extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconBadge(icon, size: 60),
+                IconBadge(icon, size: 40),
                 Positioned(
                   right: 4,
                   top: 5,
@@ -368,13 +368,13 @@ class EmptyState extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           title,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         Text(
           subtitle,
           textAlign: TextAlign.center,
