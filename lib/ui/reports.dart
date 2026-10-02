@@ -7,7 +7,6 @@ import 'widgets.dart';
 import 'palette.dart';
 import 'forms.dart';
 import 'money_journey.dart';
-import 'annual_radar.dart';
 import 'orbit_chart.dart';
 import 'money_input.dart';
 
@@ -699,7 +698,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
           child: Row(
             children: [
-              for (var i = 0; i < 3; i++)
+              for (var i = 0; i < 2; i++)
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
@@ -730,16 +729,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            [
-                              Icons.insights_rounded,
-                              Icons.route_rounded,
-                              Icons.calendar_month_rounded,
-                            ][i],
+                            [Icons.insights_rounded, Icons.route_rounded][i],
                             size: 19,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            ['Özet', 'Para akışı', 'Yıllık radar'][i],
+                            ['Özet', 'Para akışı'][i],
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -885,7 +880,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
                   ),
                 ],
               ],
-              if (view == 2) AnnualRadar(store: widget.store),
               if (view == 0) ...[
                 FeatureCard(
                   color: financeColors(context).positive,

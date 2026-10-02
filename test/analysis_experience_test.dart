@@ -123,6 +123,11 @@ void main() {
       await tester.pumpWidget(BirikioApp(store: store));
       await tester.tap(find.text('Analiz').last);
       await tester.pumpAndSettle();
+      expect(find.text('Yıllık radar'), findsNothing);
+      expect(find.text('Özet'), findsOneWidget);
+      expect(find.text('Para akışı'), findsOneWidget);
+      await tester.tap(find.text('Gelir & Gider').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Yıllık radar'));
       await tester.pumpAndSettle();
       expect(find.text('Planla'), findsNothing);
